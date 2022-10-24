@@ -1,6 +1,7 @@
 local M = {}
 
 local meta_breakpoints = {}
+--local hook_breakpoints = {}
 local hooks_mapping = {}
 local sign_group = 'meta-breakpoints'
 local dap = require('dap')
@@ -53,6 +54,37 @@ function M.toggle_meta_breakpoint(hook_name)
     dap.toggle_breakpoint({}, {}, {})
 end
 
+function M.toggle_hook_breakpoint(hook_name)
+    local bufnr = vim.api.nvim_get_current_buf()
+    local lnum = vim.api.nvim_win_get_cursor(0)[1]
+    if M.remove_meta_breakpoint(bufnr, lnum) then
+        return
+    end
+    local sign_id = vim.fn.sign_place(
+        0,
+        sign_group,
+        'HookBreakpoint',
+        bufnr,
+        { lnum = lnum; priority = 12 }
+    )
+    local bp = {
+        bufnr = bufnr,
+        lnum = lnum,
+        hook_name = "",
+        sign_id = sign_id,
+    }
+    table.insert(meta_breakpoints, bp)
+    local function place_breakpoint()
+        for _, win in ipairs(vim.api.nvim_list_wins()) do
+            if vim.api.nvim_win_get_buf(win) == bufnr then
+                vim.api.nvim_win_set_cursor(win, {lnum, 1})
+                dap.toggle_breakpoint({}, {"1"}, {})
+            end
+        end
+    end
+    M.register_to_hook(hook_name, place_breakpoint)
+end
+
 function M.remove_meta_breakpoint(bufnr, lnum)
     for i, bp in ipairs(meta_breakpoints) do
         if bp.bufnr == bufnr and bp.lnum == lnum then
@@ -66,13 +98,13 @@ end
 
 local function continue_meta_breakpoint()
     local bufnr = vim.api.nvim_get_current_buf()
-    print('bufnr=' .. bufnr)
+    --print('bufnr=' .. bufnr)
     local lnum = vim.api.nvim_win_get_cursor(0)[1]
-    print('lnum=' .. lnum)
+    --print('lnum=' .. lnum)
     for _, bp in ipairs(meta_breakpoints) do
-        print('comparing with ' .. vim.inspect(bp))
+        --print('comparing with ' .. vim.inspect(bp))
         if (bp.bufnr == bufnr and bp.lnum == lnum) then
-            print('continuing')
+            --print('continuing')
             local hooks = hooks_mapping[bp.hook_name] or {}
             for _, func in ipairs(hooks) do
                 func()
@@ -86,7 +118,8 @@ dap.listeners.after.stackTrace['meta-breakpoints.continue_meta'] = continue_meta
 
 function M.setup()
     vim.fn.sign_define('MetaBreakpoint', { text = "M", texthl = "", linehl = "", numhl = "" })
+    vim.fn.sign_define('HookBreakpoint', { text = "H", texthl = "", linehl = "", numhl = "" })
 end
---M.setup()
+M.setup()
 
 return M
