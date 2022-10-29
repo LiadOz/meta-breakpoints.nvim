@@ -32,6 +32,7 @@ local function setup_breakpoint_location(bp_location)
 end
 
 local function toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
+    print('placing dap breakpoint')
     bp_opts = bp_opts or {}
     bp_location = setup_breakpoint_location(bp_location)
     bp_opts.replace = replace_old
@@ -51,6 +52,9 @@ local function remove_meta_breakpoint(bufnr, lnum)
         if bp.bufnr == bufnr and bp.lnum == lnum then
             vim.fn.sign_unplace(sign_group, { buffer = bufnr, id = bp.sign_id })
             table.remove(meta_breakpoints, i)
+            if bp.meta.on_remove then
+                bp.meta.on_remove()
+            end
             return true
         end
     end
@@ -63,13 +67,19 @@ function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location)
     local bufnr = bp_location.bufnr
     local lnum = bp_location.lnum
     bp_opts.replace = replace_old
-    if remove_meta_breakpoint(bufnr, lnum) and not replace_old then
-        toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
-        return
-    end
 
     local meta_opts = bp_opts.meta or {}
     bp_opts.meta = nil
+    local toggle_dap = meta_opts.toggle_dap
+    if toggle_dap == nil then
+        toggle_dap = true
+    end
+    if remove_meta_breakpoint(bufnr, lnum) and not replace_old then
+        if toggle_dap then
+            toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
+        end
+        return true
+    end
 
     local sign_id = vim.fn.sign_place(
         0,
@@ -79,24 +89,31 @@ function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location)
         { lnum = lnum; priority = 12 }
     )
     local bp = {
-        --type = "continue",
-        type = meta_opts.type,
         bufnr = bufnr,
         lnum = lnum,
-        hook_name = meta_opts.hook_name,
-        --hook_name = hook_name,
         sign_id = sign_id,
+        meta = meta_opts
     }
     table.insert(meta_breakpoints, bp)
-    toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
+    if toggle_dap then
+        toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
+    end
+    return false
 end
 
 
-function M.register_to_hook(hook_name, hook_function)
-    if hooks_mapping.hook_name then
-        table.insert(hooks_mapping[hook_name], hook_function)
+function M.register_to_hook(hook_name, hook_id, hook_function)
+    if not hooks_mapping.hook_name then
+        hooks_mapping[hook_name] = {}
+    end
+    hooks_mapping[hook_name][hook_id] = hook_function
+end
+
+function M.remove_hook(hook_name, hook_id)
+    if hook_id then
+        hooks_mapping[hook_name].hook_id = nil
     else
-        hooks_mapping[hook_name] = { hook_function }
+        hooks_mapping.hook_name = nil
     end
 end
 
@@ -106,37 +123,35 @@ end
 function M.toggle_hook_breakpoint(hook_name)
     local bufnr = vim.api.nvim_get_current_buf()
     local lnum = vim.api.nvim_win_get_cursor(0)[1]
-    if remove_meta_breakpoint(bufnr, lnum) then
+    local id = string.format("%d-%d", bufnr, lnum)
+    local remove_hook = string.format("remove-%s", id)
+    local function on_remove()
+        M.remove_hook(remove_hook)
+        M.remove_hook(hook_name, id)
+    end
+
+    local meta_opts = {type = 'hook', hook_name = remove_hook, toggle_dap = false, on_remove = on_remove}
+    if M.toggle_meta_breakpoint({meta = meta_opts}) then
         return
     end
-    local sign_id = vim.fn.sign_place(
-        0,
-        sign_group,
-        'HookBreakpoint',
-        bufnr,
-        { lnum = lnum; priority = 12 }
-    )
-    local bp = {
-        type = 'hook_activated',
-        bufnr = bufnr,
-        lnum = lnum,
-        hook_name = "",
-        sign_id = sign_id,
-    }
-    table.insert(meta_breakpoints, bp)
-    print('inserted hook breakpoint')
+
     local function place_breakpoint()
-        --for _, win in ipairs(vim.api.nvim_list_wins()) do
-            --if vim.api.nvim_win_get_buf(win) == bufnr then
-                --print('activating breakpoint')
-                --vim.api.nvim_win_set_cursor(win, {lnum, 1})
-                --dap.toggle_breakpoint({}, "1", {})
-            --end
-        --end
         print('activating breakpoint')
-        breakpoints.toggle({}, bufnr, lnum)
+        toggle_dap_breakpoint({}, true, {bufnr = bufnr, lnum = lnum})
+        dap.continue()
     end
-    M.register_to_hook(hook_name, place_breakpoint)
+    local function remove_breakpoint()
+        print('remove breakpoint')
+        toggle_dap_breakpoint({}, nil, {bufnr = bufnr, lnum = lnum})
+    end
+
+
+    M.register_to_hook(hook_name, id, place_breakpoint)
+    M.register_to_hook(remove_hook, id, remove_breakpoint)
+end
+
+function M.simple_meta_breakpoint(hook_name)
+    M.toggle_meta_breakpoint({meta = {type = 'meta', hook_name = hook_name}})
 end
 
 local function continue_meta_breakpoint()
@@ -144,26 +159,22 @@ local function continue_meta_breakpoint()
     local lnum = vim.api.nvim_win_get_cursor(0)[1]
     for _, bp in ipairs(meta_breakpoints) do
         if (bp.bufnr == bufnr and bp.lnum == lnum) then
-            local hooks = hooks_mapping[bp.hook_name] or {}
-            for _, func in ipairs(hooks) do
+            local hooks = hooks_mapping[bp.meta.hook_name] or {}
+            for id, func in pairs(hooks) do
+                print("calling hook: " .. bp.meta.hook_name .. " id: " .. id)
                 func()
-            end
-            if bp.type == 'continue' then
-                print('before continue')
-                --dap.continue()
-            elseif bp.type == 'hook_activated' then
-                --dap.toggle_breakpoint()
             end
         end
     end
 end
 
---local function log_breakpoint(session, event)
-    --print("breakpoint event " .. event)
+--local function log_event(session, event)
+    --print("event " .. vim.inspect(event))
+    --print("session " .. vim.inspect(session))
 --end
---dap.listeners.after.breakpointEvent['meta-breakpoints.log_breakpoint'] = log_breakpoint
 
 dap.listeners.after.stackTrace['meta-breakpoints.continue_meta'] = continue_meta_breakpoint
+--dap.listeners.after.event_stopped['meta-breakpoints.log'] = log_event
 
 
 function M.setup()
