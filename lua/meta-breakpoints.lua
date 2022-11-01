@@ -1,4 +1,6 @@
 local M = {}
+-- next up
+-- permanent breakpoint
 
 local meta_breakpoints = {}
 local hooks_mapping = {}
@@ -6,8 +8,13 @@ local sign_group = 'meta-breakpoints'
 local dap = require('dap')
 
 
+local function get_breakpoint_lnum(bp)
+    local placements = vim.fn.sign_getplaced(bp.bufnr, {group = sign_group, id = bp.sign_id})
+    local lnum = placements[1].signs[1].lnum
+    return lnum
+end
+
 local breakpoints = require('dap.breakpoints')
---local Session = require('dap.session')
 
 local breakpoint_sign_type = {hook = 'HookBreakpoint'}
 local function get_breakpoint_type_sign(breakpoint_type)
@@ -32,7 +39,6 @@ local function setup_breakpoint_location(bp_location)
 end
 
 local function toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
-    print('placing dap breakpoint')
     bp_opts = bp_opts or {}
     bp_location = setup_breakpoint_location(bp_location)
     bp_opts.replace = replace_old
@@ -49,7 +55,7 @@ end
 
 local function remove_meta_breakpoint(bufnr, lnum)
     for i, bp in ipairs(meta_breakpoints) do
-        if bp.bufnr == bufnr and bp.lnum == lnum then
+        if bp.bufnr == bufnr and get_breakpoint_lnum(bp)== lnum then
             vim.fn.sign_unplace(sign_group, { buffer = bufnr, id = bp.sign_id })
             table.remove(meta_breakpoints, i)
             if bp.meta.on_remove then
@@ -78,7 +84,7 @@ function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location)
         if toggle_dap then
             toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
         end
-        return true
+        return nil
     end
 
     local sign_id = vim.fn.sign_place(
@@ -90,7 +96,6 @@ function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location)
     )
     local bp = {
         bufnr = bufnr,
-        lnum = lnum,
         sign_id = sign_id,
         meta = meta_opts
     }
@@ -98,7 +103,7 @@ function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location)
     if toggle_dap then
         toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
     end
-    return false
+    return bp
 end
 
 
@@ -117,8 +122,6 @@ function M.remove_hook(hook_name, hook_id)
     end
 end
 
---M.register_to_hook('debug_hook', function() print('hook debug_hook called') end)
-
 
 function M.toggle_hook_breakpoint(hook_name)
     local bufnr = vim.api.nvim_get_current_buf()
@@ -131,18 +134,19 @@ function M.toggle_hook_breakpoint(hook_name)
     end
 
     local meta_opts = {type = 'hook', hook_name = remove_hook, toggle_dap = false, on_remove = on_remove}
-    if M.toggle_meta_breakpoint({meta = meta_opts}) then
+    local bp = M.toggle_meta_breakpoint({meta = meta_opts})
+    if bp == nil then
         return
     end
 
     local function place_breakpoint()
-        print('activating breakpoint')
-        toggle_dap_breakpoint({}, true, {bufnr = bufnr, lnum = lnum})
+        --print('activating breakpoint')
+        toggle_dap_breakpoint({}, true, {bufnr = bp.bufnr, lnum = get_breakpoint_lnum(bp)})
         dap.continue()
     end
     local function remove_breakpoint()
         print('remove breakpoint')
-        toggle_dap_breakpoint({}, nil, {bufnr = bufnr, lnum = lnum})
+        toggle_dap_breakpoint({}, nil, { bufnr = bp.bufnr, lnum = get_breakpoint_lnum(bp)})
     end
 
 
@@ -154,11 +158,11 @@ function M.simple_meta_breakpoint(hook_name)
     M.toggle_meta_breakpoint({meta = {type = 'meta', hook_name = hook_name}})
 end
 
-local function continue_meta_breakpoint()
+local function trigger_hooks()
     local bufnr = vim.api.nvim_get_current_buf()
     local lnum = vim.api.nvim_win_get_cursor(0)[1]
     for _, bp in ipairs(meta_breakpoints) do
-        if (bp.bufnr == bufnr and bp.lnum == lnum) then
+        if bp.bufnr == bufnr and get_breakpoint_lnum(bp) == lnum then
             local hooks = hooks_mapping[bp.meta.hook_name] or {}
             for id, func in pairs(hooks) do
                 print("calling hook: " .. bp.meta.hook_name .. " id: " .. id)
@@ -173,7 +177,7 @@ end
     --print("session " .. vim.inspect(session))
 --end
 
-dap.listeners.after.stackTrace['meta-breakpoints.continue_meta'] = continue_meta_breakpoint
+dap.listeners.after.stackTrace['meta-breakpoints.trigger_hooks'] = trigger_hooks
 --dap.listeners.after.event_stopped['meta-breakpoints.log'] = log_event
 
 
