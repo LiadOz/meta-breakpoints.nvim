@@ -2,16 +2,15 @@ local M = {}
 
 
 local meta_breakpoints = {}
-local sign_group = 'meta-breakpoints'
+local signs = require('meta-breakpoints.signs')
 local dap = require('dap')
 local breakpoints = require('dap.breakpoints')
 local hooks = require('meta-breakpoints.hooks')
+local persistent = require('meta-breakpoints.persistent_bp')
 
 
 local function get_breakpoint_lnum(bp)
-    local placements = vim.fn.sign_getplaced(bp.bufnr, {group = sign_group, id = bp.sign_id})
-    local lnum = placements[1].signs[1].lnum
-    return lnum
+    return signs.get_sign_id_data(bp.sign_id, bp.bufnr).lnum
 end
 
 
@@ -55,11 +54,12 @@ end
 local function remove_meta_breakpoint(bufnr, lnum)
     for i, bp in ipairs(meta_breakpoints) do
         if bp.bufnr == bufnr and get_breakpoint_lnum(bp)== lnum then
-            vim.fn.sign_unplace(sign_group, { buffer = bufnr, id = bp.sign_id })
+            vim.fn.sign_unplace(signs.sign_group, { buffer = bufnr, id = bp.sign_id })
             table.remove(meta_breakpoints, i)
             if bp.meta.on_remove then
                 bp.meta.on_remove()
             end
+            persistent.remove_persistent_breakpoint(bp.sign_id)
             return true
         end
     end
@@ -88,7 +88,7 @@ function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location)
 
     local sign_id = vim.fn.sign_place(
         0,
-        sign_group,
+        signs.sign_group,
         get_breakpoint_type_sign(meta_opts.type),
         bufnr,
         { lnum = lnum; priority = 12 }
@@ -102,7 +102,18 @@ function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location)
     if toggle_dap then
         toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
     end
+    if meta_opts.persistent then
+        persistent.add_persistent_breakpoint(sign_id, bufnr, bp_opts, meta_opts, true)
+    end
     return bp
+end
+
+
+function M.load_persistent_breakpoints()
+    persistent.get_persistent_breakpoints(function(bp_opts, meta_opts, bp_location)
+        bp_opts.meta = meta_opts
+        M.toggle_meta_breakpoint(bp_opts, false, bp_location)
+    end)
 end
 
 
