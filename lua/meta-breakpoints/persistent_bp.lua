@@ -13,12 +13,15 @@ local function save_breakpoints(breakpoints)
     utils.save_breakpoints(bps)
 end
 
-function M.get_persistent_breakpoints(callback)
+function M.get_persistent_breakpoints(per_bp_callback, callback)
     utils.read_breakpoints(function(breakpoints_data)
         for _, bp_data in ipairs(breakpoints_data) do
             local bufnr = vim.uri_to_bufnr(vim.uri_from_fname(bp_data.file_name))
             local bp_location = { lnum = bp_data.lnum, bufnr = bufnr }
-            callback(bp_data.bp_opts, bp_data.meta_opts, bp_location)
+            per_bp_callback(bp_data.bp_opts, bp_data.meta_opts, bp_location)
+        end
+        if callback then
+            callback()
         end
     end)
 end
