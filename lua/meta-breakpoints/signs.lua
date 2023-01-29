@@ -16,4 +16,16 @@ function M.get_buf_signs(bufnr)
     return result
 end
 
+function M.get_sign_at_location(bufnr, lnum)
+  local signs = vim.fn.sign_getplaced(bufnr, {group = M.sign_group, lnum = lnum})[1].signs
+  if #signs > 0 then
+    return signs[1].id
+  end
+  return nil
+end
+
+function M.remove_sign(bufnr, sign_id)
+  vim.fn.sign_unplace(M.sign_group, { buffer = bufnr, lnum = sign_id})
+end
+
 return M

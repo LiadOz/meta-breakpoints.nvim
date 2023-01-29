@@ -1,7 +1,8 @@
 local M = {}
 
 
-local meta_breakpoints = {}
+local bp_by_id = {}
+local hook_id_count = 0
 local signs = require('meta-breakpoints.signs')
 local dap = require('dap')
 local breakpoints = require('dap.breakpoints')
@@ -10,14 +11,24 @@ local persistent = require('meta-breakpoints.persistent_bp')
 
 
 function M.get_all_breakpoints()
-    return meta_breakpoints
+  local meta_breakpoints = {}
+  for _, bp in pairs(bp_by_id) do
+    table.insert(meta_breakpoints, bp)
+  end
+  return meta_breakpoints
 end
-
 
 local function get_breakpoint_lnum(bp)
     return signs.get_sign_id_data(bp.sign_id, bp.bufnr).lnum
 end
 
+local function get_breakpoint_at_location(bufnr, lnum)
+  local sign_id = signs.get_sign_at_location(bufnr, lnum)
+  if not sign_id then
+    return nil
+  end
+  return bp_by_id[sign_id]
+end
 
 local breakpoint_sign_type = {hook = 'HookBreakpoint'}
 local function get_breakpoint_type_sign(breakpoint_type)
@@ -43,12 +54,7 @@ end
 
 function M.get_breakpoint(bp_location)
     bp_location = setup_breakpoint_location()
-    for _, bp in ipairs(meta_breakpoints) do
-        if bp.bufnr == bp_location.bufnr and get_breakpoint_lnum(bp) == bp_location.lnum then
-            return bp
-        end
-    end
-    return false
+    return get_breakpoint_at_location(bp_location.bufnr, bp_location.lnum)
 end
 
 local function toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
@@ -67,18 +73,19 @@ local function toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
 end
 
 local function remove_meta_breakpoint(bufnr, lnum)
-    for i, bp in ipairs(meta_breakpoints) do
-        if bp.bufnr == bufnr and get_breakpoint_lnum(bp)== lnum then
-            vim.fn.sign_unplace(signs.sign_group, { buffer = bufnr, id = bp.sign_id })
-            table.remove(meta_breakpoints, i)
-            if bp.meta.on_remove then
-                bp.meta.on_remove()
-            end
-            persistent.remove_persistent_breakpoint(bp.sign_id)
-            return true
-        end
-    end
+  local bp = get_breakpoint_at_location(bufnr, lnum)
+  if not bp then
     return false
+  end
+
+  signs.remove_sign(bufnr, bp.sign_id)
+  bp_by_id[bp.sign_id] = nil
+
+  if bp.meta.on_remove then
+      bp.meta.on_remove()
+  end
+  persistent.remove_persistent_breakpoint(bp.sign_id)
+  return true
 end
 
 function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location)
@@ -111,10 +118,10 @@ function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location)
     )
     local bp = {
         bufnr = bufnr,
-        sign_id = sign_id,
-        meta = meta_opts
+        meta = meta_opts,
+        sign_id = sign_id
     }
-    table.insert(meta_breakpoints, bp)
+    bp_by_id[sign_id] = bp
     if toggle_dap then
         toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
     end
@@ -136,7 +143,6 @@ function M.load_persistent_breakpoints(callback)
     end, callback)
 end
 
-
 function M.toggle_hook_breakpoint(bp_opts, replace_old, bp_location)
     bp_opts = bp_opts or {}
     bp_location = setup_breakpoint_location(bp_location)
@@ -146,13 +152,10 @@ function M.toggle_hook_breakpoint(bp_opts, replace_old, bp_location)
     assert(meta_opts.trigger_hook, "Must have trigger_hook for hook breakpoint")
     local trigger_hook = meta_opts.trigger_hook
 
-    local bufnr = bp_location.bufnr
-    local lnum = bp_location.lnum
-    local id = string.format("%d-%d", bufnr, lnum)
-    local remove_hook = string.format("INTERNAL-remove-%s", id)
+    local remove_hook = string.format("INTERNAL-remove-%s", hook_id_count)
     local function on_remove()
         hooks.remove_hook(remove_hook)
-        hooks.remove_hook(trigger_hook, id)
+        hooks.remove_hook(trigger_hook, hook_id_count)
     end
 
     meta_opts.type = 'hook'
@@ -184,8 +187,9 @@ function M.toggle_hook_breakpoint(bp_opts, replace_old, bp_location)
     end
 
 
-    hooks.register_to_hook(trigger_hook, id, place_breakpoint)
-    hooks.register_to_hook(remove_hook, id, remove_breakpoint)
+    hooks.register_to_hook(trigger_hook, hook_id_count, place_breakpoint)
+    hooks.register_to_hook(remove_hook, hook_id_count, remove_breakpoint)
+    hook_id_count = hook_id_count + 1
 end
 
 function M.simple_meta_breakpoint(hook_name)
@@ -195,24 +199,16 @@ end
 local function trigger_hooks()
     local bufnr = vim.api.nvim_get_current_buf()
     local lnum = vim.api.nvim_win_get_cursor(0)[1]
-    for _, bp in ipairs(meta_breakpoints) do
-        if bp.bufnr == bufnr and get_breakpoint_lnum(bp) == lnum then
-            local hooks_list = hooks.get_hooks_mapping(bp.meta.hook_name) or {}
-            for id, func in pairs(hooks_list) do
-                print("calling hook: " .. bp.meta.hook_name .. " id: " .. id)
-                func()
-            end
-        end
+    local bp = get_breakpoint_at_location(bufnr, lnum)
+    if not bp then
+      return
+    end
+    local hooks_list = hooks.get_hooks_mapping(bp.meta.hook_name) or {}
+    for _, func in pairs(hooks_list) do
+        func()
     end
 end
 
---local function log_event(session, event)
-    --print("event " .. vim.inspect(event))
-    --print("session " .. vim.inspect(session))
---end
-
 dap.listeners.after.stackTrace['meta-breakpoints.trigger_hooks'] = trigger_hooks
---dap.listeners.after.event_stopped['meta-breakpoints.log'] = log_event
-
 
 return M
