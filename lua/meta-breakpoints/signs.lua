@@ -25,7 +25,7 @@ function M.get_sign_at_location(bufnr, lnum)
 end
 
 function M.remove_sign(bufnr, sign_id)
-  vim.fn.sign_unplace(M.sign_group, { buffer = bufnr, lnum = sign_id})
+  vim.fn.sign_unplace(M.sign_group, { buffer = bufnr, id = sign_id})
 end
 
 return M
