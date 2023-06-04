@@ -7,6 +7,7 @@ local hooks = require('meta-breakpoints.hooks')
 local ui = require('meta-breakpoints.ui')
 M.toggle_meta_breakpoint = ui.toggle_meta_breakpoint
 M.toggle_hook_breakpoint = ui.toggle_hook_breakpoint
+M.put_conditional_breakpoint = ui.put_conditional_breakpoint
 M.get_all_breakpoints = breakpoints.get_all_breakpoints
 M.load_persistent_breakpoints = breakpoints.load_persistent_breakpoints
 M.get_all_hooks = hooks.get_all_hooks

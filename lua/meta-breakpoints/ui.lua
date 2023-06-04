@@ -90,5 +90,34 @@ function M.toggle_hook_breakpoint(bp_opts, replace_old)
     end)
 end
 
+local function treesitter_highlight(lang, input)
+  local parser = vim.treesitter.get_string_parser(input, 'python')
+  local tree = parser:parse()[1]
+  local query = vim.treesitter.query.get('python', 'highlights')
+  local highlights = {}
+  for id, node, _ in query:iter_captures(tree:root(), input) do
+    local _, cstart, _ , cend = node:range()
+    table.insert(highlights, { cstart, cend, "@" .. query.captures[id] })
+  end
+  return highlights
+end
+
+function M.put_conditional_breakpoint(bp_opts, replace_old)
+  bp_opts = bp_opts or {}
+  if bp_opts.condition ~= nil then
+    M.toggle_meta_breakpoint(bp_opts, replace_old)
+    return
+  end
+  vim.ui.input({prompt = "Enter condition: ", highlight = function(input)
+    return treesitter_highlight(vim.bo.filetype, input)
+  end}, function(result)
+    if not result then
+      return
+    end
+    bp_opts.condition = result
+    M.toggle_meta_breakpoint(bp_opts, replace_old)
+  end)
+end
+
 
 return M
