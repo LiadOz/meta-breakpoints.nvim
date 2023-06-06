@@ -72,11 +72,15 @@ local function toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
     end
 end
 
-local function remove_meta_breakpoint(bufnr, lnum)
+local function remove_meta_breakpoint(bufnr, lnum, bp_type)
   local bp = get_breakpoint_at_location(bufnr, lnum)
   if not bp then
     return false
   end
+  if bp.meta.type ~= bp_type then
+    error("Mismatched breakpoint type expected " .. bp.meta.type .. " got " .. bp_type)
+  end
+
 
   signs.remove_sign(bufnr, bp.sign_id)
   bp_by_id[bp.sign_id] = nil
@@ -88,7 +92,9 @@ local function remove_meta_breakpoint(bufnr, lnum)
   return true
 end
 
-function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location)
+
+-- use ignore_persistent if you need to have better control of the breakpoint data being saved
+function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location, ignore_persistent)
     bp_opts = bp_opts or {}
     bp_location = setup_breakpoint_location(bp_location)
     local bufnr = bp_location.bufnr
@@ -102,19 +108,27 @@ function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location)
     if toggle_dap == nil then
         toggle_dap = true
     end
-    if remove_meta_breakpoint(bufnr, lnum) and not replace_old then
+    if remove_meta_breakpoint(bufnr, lnum, meta_opts.type) and not replace_old then
         if toggle_dap then
             toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
         end
         return nil
     end
 
+    if toggle_dap then
+        toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
+    end
+
+    local priority = 11
+    if meta_opts.type == "HookBreakpoint" then
+      priority = 10
+    end
     local sign_id = vim.fn.sign_place(
         0,
         signs.sign_group,
         get_breakpoint_type_sign(meta_opts.type),
         bufnr,
-        { lnum = lnum; priority = 12 }
+        { lnum = lnum; priority = priority }
     )
     local bp = {
         bufnr = bufnr,
@@ -122,10 +136,7 @@ function M.toggle_meta_breakpoint(bp_opts, replace_old, bp_location)
         sign_id = sign_id
     }
     bp_by_id[sign_id] = bp
-    if toggle_dap then
-        toggle_dap_breakpoint(bp_opts, replace_old, bp_location)
-    end
-    if meta_opts.persistent then
+    if meta_opts.persistent and not ignore_persistent then
         persistent.add_persistent_breakpoint(sign_id, bufnr, bp_opts, meta_opts, true)
     end
     return bp
@@ -162,19 +173,18 @@ function M.toggle_hook_breakpoint(bp_opts, replace_old, bp_location)
     meta_opts.hook_name = remove_hook
     meta_opts.toggle_dap = false
     meta_opts.on_remove = on_remove
-    local is_persistent = meta_opts.persistent
-    meta_opts.persistent = false
-    local bp = M.toggle_meta_breakpoint({meta = meta_opts}, replace_old, bp_location)
+
+    local bp = M.toggle_meta_breakpoint({meta = meta_opts}, replace_old, bp_location, true)
     if bp == nil then
         return
     end
 
-    if is_persistent then
+    if meta_opts.persistent then
         local saved_bp_opts = vim.deepcopy(bp_opts)
         local saved_meta_opts = saved_bp_opts.meta
         saved_meta_opts.hook_name = nil
         saved_meta_opts.on_remove = nil
-        saved_meta_opts.is_persistent = true
+        --saved_meta_opts.is_persistent = true
         persistent.add_persistent_breakpoint(bp.sign_id, bp.bufnr, saved_bp_opts, saved_meta_opts, true)
     end
 
