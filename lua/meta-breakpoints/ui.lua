@@ -95,7 +95,7 @@ end
 local function treesitter_highlight(lang, input)
   local parser = vim.treesitter.get_string_parser(input, 'python')
   local tree = parser:parse()[1]
-  local query = vim.treesitter.query.get('python', 'highlights')
+  local query = vim.treesitter.query.get(lang, 'highlights')
   local highlights = {}
   for id, node, _ in query:iter_captures(tree:root(), input) do
     local _, cstart, _ , cend = node:range()
@@ -120,3 +120,5 @@ function M.put_conditional_breakpoint(bp_opts, replace_old)
     M.toggle_meta_breakpoint(bp_opts, replace_old)
   end)
 end
+
+return M
