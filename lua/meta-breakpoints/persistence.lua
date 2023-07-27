@@ -38,6 +38,9 @@ end
 ---@param callback fun()|nil
 function M.update_file_breakpoints(file_name, breakpoints_data, update_file, callback)
   persistent_breakpoints[file_name] = breakpoints_data
+  if #breakpoints_data == 0 then
+    persistent_breakpoints[file_name] = nil
+  end
   if update_file then
     save_breakpoints(persistent_breakpoints, callback)
   else

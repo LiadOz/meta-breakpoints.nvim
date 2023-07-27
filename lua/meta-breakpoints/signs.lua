@@ -35,6 +35,7 @@ function M.get_buf_signs(bufnr)
 end
 
 function M.get_sign_at_location(bufnr, lnum)
+  print(string.format("get_sign_at_location bufnr:%s lnum:%s", bufnr, lnum))
   local signs = vim.fn.sign_getplaced(bufnr, { group = M.sign_group, lnum = lnum })[1].signs
   if #signs > 0 then
     return signs[1].id

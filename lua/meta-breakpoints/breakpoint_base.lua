@@ -17,9 +17,9 @@ local config = require('meta-breakpoints.config')
 
 
 ---@return BreakpointData[]
-function M.get_all_breakpoints()
+function M.get_breakpoints(bufnr)
   local meta_breakpoints = {}
-  for _, sign_data in pairs(signs.get_buf_signs()) do
+  for _, sign_data in pairs(signs.get_buf_signs(bufnr)) do
     table.insert(meta_breakpoints, bp_by_id[sign_data.sign_id])
   end
   return meta_breakpoints
@@ -29,6 +29,18 @@ end
 ---@return number
 local function get_breakpoint_lnum(bp)
   return signs.get_sign_id_data(bp.sign_id, bp.bufnr).lnum
+end
+
+function M.update_buf_breakpoints(bufnr, update_file, callback)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local breakpoints_data = M.get_breakpoints(bufnr)
+
+  local persistent_data = {}
+  local file_name = vim.uri_to_fname(vim.uri_from_bufnr(bufnr))
+  for _, breakpoint_data in ipairs(breakpoints_data) do
+    table.insert(persistent_data, {lnum = get_breakpoint_lnum(breakpoint_data), meta_opts = breakpoint_data.meta})
+  end
+  persistence.update_file_breakpoints(file_name, persistent_data, update_file, callback)
 end
 
 ---@param bufnr number
@@ -104,7 +116,9 @@ local function remove_meta_breakpoint(bufnr, lnum)
       func()
     end
   end
-  persistence.remove_persistent_breakpoint(bp.sign_id, config.persistent_breakpoints.persist_on_placement)
+  if bp.meta.persistent then
+    M.update_buf_breakpoints(bufnr, config.persistent_breakpoints.persist_on_placement)
+  end
   return true
 end
 
@@ -145,7 +159,7 @@ function M.toggle_meta_breakpoint(meta_opts, placement_opts)
   }
   bp_by_id[sign_id] = bp
   if meta_opts.persistent then
-    persistence.add_persistent_breakpoint(sign_id, bufnr, meta_opts, config.persistent_breakpoints.persist_on_placement)
+    M.update_buf_breakpoints(bufnr, config.persistent_breakpoints.persist_on_placement)
   end
   return bp
 end
@@ -159,8 +173,10 @@ function M.load_persistent_breakpoints(callback, opts)
     print('loading breakpoints in all buffers clearing all breakpoints')
     M.clear()
   end
-  persistence.get_persistent_breakpoints(function(bufnr, lnum, meta_opts)
+  persistence.get_persistent_breakpoints(function(fname, lnum, meta_opts)
+    local bufnr = vim.uri_to_bufnr(vim.uri_from_fname(fname))
     if opts.all_buffers or bufnr == target_bufnr then
+
       local placement_opts = setup_placement_opts({bufnr = bufnr, lnum = lnum})
       if meta_opts.type == 'hook' then
         M.toggle_hook_breakpoint(meta_opts, placement_opts)
@@ -215,8 +231,8 @@ function M.simple_meta_breakpoint(hook_name)
   M.toggle_meta_breakpoint({type = 'meta', hit_hook = hook_name})
 end
 
----@param bufnr number
----@param lnum number
+---@param bufnr number|nil
+---@param lnum number|nil
 function M.trigger_hooks(bufnr, lnum)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   lnum = lnum or vim.api.nvim_win_get_cursor(0)[1]
@@ -237,6 +253,6 @@ function M.clear()
   bp_by_id = {}
 end
 
-dap.listeners.after.stackTrace['meta-breakpoints.trigger_hooks'] = M.trigger_hooks
+dap.listeners.after.stackTrace['meta-breakpoints.trigger_hooks'] = function() M.trigger_hooks() end
 
 return M
