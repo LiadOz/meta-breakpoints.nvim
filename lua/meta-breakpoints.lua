@@ -1,8 +1,8 @@
 local M = {}
 
-
 local breakpoints = require('meta-breakpoints.breakpoint_base')
-local persistent = require('meta-breakpoints.persistent_bp')
+local persistence = require('meta-breakpoints.persistence')
+local config = require('meta-breakpoints.config')
 local hooks = require('meta-breakpoints.hooks')
 local ui = require('meta-breakpoints.ui')
 M.toggle_meta_breakpoint = ui.toggle_meta_breakpoint
@@ -13,23 +13,21 @@ M.load_persistent_breakpoints = breakpoints.load_persistent_breakpoints
 M.get_all_hooks = hooks.get_all_hooks
 
 
-local function setup_opts(opts)
-    opts.meta_breakpoint_sign = opts.meta_breakpoint_sign or 'M'
-    opts.hook_breakpoint_sign = opts.hook_breakpoint_sign or 'H'
-    opts.allow_persistent_breakpoints = opts or true
-end
-
 function M.setup(opts)
-    setup_opts(opts)
-    if opts.allow_persistent_breakpoints then
-      breakpoints.load_persistent_breakpoints()
-      vim.api.nvim_create_autocmd({'BufWritePost'}, {
-          pattern = {"*"},
-          callback = function() persistent.update_curr_buf_breakpoints(true) end
+  config.setup_opts(opts)
+  if config.persistent_breakpoints.enabled then
+    if config.persistent_breakpoints.load_breakpoints_on_setup then
+      breakpoints.load_persistent_breakpoints(function() end)
+    end
+    if config.persistent_breakpoints.save_breakpoints_on_buf_write then
+      vim.api.nvim_create_autocmd({ 'BufWritePost' }, {
+        pattern = { "*" },
+        callback = function() persistence.update_buf_breakpoints(0, true) end
       })
-      end
-    vim.fn.sign_define('MetaBreakpoint', { text = opts.meta_breakpoint_sign, texthl = "", linehl = "", numhl = "" })
-    vim.fn.sign_define('HookBreakpoint', { text = opts.hook_breakpoint_sign, texthl = "", linehl = "", numhl = "" })
+    end
+  end
+  vim.fn.sign_define('MetaBreakpoint', { text = config.signs.meta_breakpoint_sign, texthl = "", linehl = "", numhl = "" })
+  vim.fn.sign_define('HookBreakpoint', { text = config.signs.hook_breakpoint_sign, texthl = "", linehl = "", numhl = "" })
 end
 
 return M

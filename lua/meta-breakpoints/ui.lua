@@ -43,7 +43,7 @@ end
 
 
 local function should_remove(replace_old)
-  if not replace_old and breakpoints.get_breakpoint() then
+  if not replace_old and breakpoints.get_breakpoint_at_cursor() then
     return true
   end
   return false

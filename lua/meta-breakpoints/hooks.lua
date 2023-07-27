@@ -37,4 +37,8 @@ function M.get_all_hooks()
 end
 
 
+function M.clear_hooks()
+  hooks_mapping = {}
+end
+
 return M
