@@ -17,12 +17,12 @@ function M.setup(opts)
   config.setup_opts(opts)
   if config.persistent_breakpoints.enabled then
     if config.persistent_breakpoints.load_breakpoints_on_setup then
-      breakpoints.load_persistent_breakpoints(function() end)
+      breakpoints.load_persistent_breakpoints(function() end, {all_buffers = true})
     end
     if config.persistent_breakpoints.save_breakpoints_on_buf_write then
       vim.api.nvim_create_autocmd({ 'BufWritePost' }, {
         pattern = { "*" },
-        callback = function() persistence.update_buf_breakpoints(0, true) end
+        callback = function() breakpoints.update_buf_breakpoints(nil, true) end
       })
     end
   end
