@@ -13,7 +13,6 @@ local function get_hooks()
     end
   end
   for hook_name, _ in pairs(hooks.get_all_hooks()) do
-    print(string.sub(hook_name, 0, 8))
     if string.sub(hook_name, 0, 8) ~= 'INTERNAL' then
       curr_hooks[hook_name] = true
     end

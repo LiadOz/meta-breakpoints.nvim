@@ -18,20 +18,6 @@ describe("test persistent data", function()
     clear_persistent_breakpoints()
   end)
 
-  it('reads without directory', function()
-    local co = coroutine.running()
-    local status = uv.fs_unlink(utils.get_breakpoints_file())
-    assert.truthy(status)
-    status = uv.fs_rmdir(plugin_dir)
-    assert.truthy(status)
-
-    utils.read_breakpoints(function(breakpoints)
-      assert.are.same({}, breakpoints)
-      coroutine.resume(co)
-    end)
-    coroutine.yield()
-  end)
-
   it('reads invalid file', function()
     local co = coroutine.running()
     local fd = uv.fs_open(utils.get_breakpoints_file(), 'w', 438)
@@ -66,6 +52,27 @@ describe("test persistent data", function()
 
     utils.read_breakpoints(function(read_data)
       assert.are.same(data, read_data)
+      coroutine.resume(co)
+    end)
+    coroutine.yield()
+  end)
+
+  it('reads without directory', function()
+    local test_dir = plugin_dir .. '/removing_directory_test'
+    require('meta-breakpoints').setup({
+      plugin_directory = test_dir,
+      persistent_breakpoints = {
+        load_breakpoints_on_setup = false,
+      },
+    })
+
+    local co = coroutine.running()
+    uv.fs_unlink(utils.get_breakpoints_file())
+    local status = uv.fs_rmdir(test_dir)
+    assert.truthy(status)
+
+    utils.read_breakpoints(function(breakpoints)
+      assert.are.same({}, breakpoints)
       coroutine.resume(co)
     end)
     coroutine.yield()

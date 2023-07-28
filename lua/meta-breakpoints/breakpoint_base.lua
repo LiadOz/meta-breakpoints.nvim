@@ -15,6 +15,7 @@ local breakpoints = require('dap.breakpoints')
 local hooks = require('meta-breakpoints.hooks')
 local persistence = require('meta-breakpoints.persistence')
 local config = require('meta-breakpoints.config')
+local log = require('meta-breakpoints.log')
 
 
 ---@return BreakpointData[]
@@ -183,7 +184,7 @@ function M.load_persistent_breakpoints(callback, opts)
   opts = opts or {all_buffers = true}
   local target_bufnr = opts.bufnr == 0 and vim.fn.bufnr() or opts.bufnr
   if opts.all_buffers then
-    print('loading breakpoints in all buffers clearing all breakpoints')
+    log.debug('loading breakpoints in all buffers clearing all breakpoints')
     M.clear()
   end
   persistence.get_persistent_breakpoints(function(fname, persistent_data)
