@@ -1,4 +1,5 @@
 local uv = vim.loop
+local persistence = require('meta-breakpoints.persistence')
 local utils = require('meta-breakpoints.utils')
 local plugin_dir = '/tmp/meta_breakpoints'
 local clear_persistent_breakpoints = require('tests.utils').clear_persistent_breakpoints
@@ -20,9 +21,9 @@ describe("test persistent data", function()
   it('reads without directory', function()
     local co = coroutine.running()
     local status = uv.fs_unlink(utils.get_breakpoints_file())
-    assert(status)
+    assert.truthy(status)
     status = uv.fs_rmdir(plugin_dir)
-    assert(status)
+    assert.truthy(status)
 
     utils.read_breakpoints(function(breakpoints)
       assert.are.same({}, breakpoints)
@@ -34,7 +35,7 @@ describe("test persistent data", function()
   it('reads invalid file', function()
     local co = coroutine.running()
     local fd = uv.fs_open(utils.get_breakpoints_file(), 'w', 438)
-    assert(fd)
+    assert.truthy(fd)
     uv.fs_write(fd, 'invalid file')
     uv.fs_close(fd)
     utils.read_breakpoints(function(breakpoints)

@@ -1,6 +1,6 @@
 local M = {}
 
----@alias PersistentBreakpointFileData {lnum: string, meta_opts: MetaOpts}
+---@alias PersistentBreakpointFileData {lnum: number, dap_opts: DapOpts, meta_opts: MetaOpts}
 ---@type table<string, PersistentBreakpointFileData[]>
 local persistent_breakpoints = {}
 
@@ -11,7 +11,7 @@ local function save_breakpoints(breakpoints, callback)
 end
 
 --- Asynchronously get persistent breakpoints
----@param per_bp_callback fun(filename: string, lnum: number, meta_opts: MetaOpts)
+---@param per_bp_callback fun(filename: string, persistent_data: PersistentBreakpointFileData)
 ---@param callback fun()
 function M.get_persistent_breakpoints(per_bp_callback, callback)
   persistent_breakpoints = {}
@@ -20,9 +20,9 @@ function M.get_persistent_breakpoints(per_bp_callback, callback)
       local saved_breakpoints = {}
       for _, breakpoint_data in ipairs(breakpoints_data) do
         table.insert(saved_breakpoints, breakpoint_data)
-        pcall(per_bp_callback, file_name, breakpoint_data.lnum, breakpoint_data.meta_opts)
+        pcall(per_bp_callback, file_name, breakpoint_data)
       end
-      if #saved_breakpoints then
+      if #saved_breakpoints > 0 then
         persistent_breakpoints[file_name] = saved_breakpoints
       end
     end

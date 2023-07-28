@@ -1,4 +1,3 @@
-vim.o.swapfile = false
 local bps = require('meta-breakpoints.breakpoint_base')
 local signs = require('meta-breakpoints.signs')
 local hooks = require('meta-breakpoints.hooks')
@@ -29,60 +28,71 @@ describe("test breakpoints without persistence", function()
   end)
 
   it("setup meta breakpoint", function()
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1 })
     local bp = bps.get_breakpoints()[1]
     assert.equals(1, signs.get_sign_id_data(bp.sign_id, bp.bufnr).lnum)
     assert.are.same({ { buffer, 1 } }, get_dap_breakpoints())
 
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 1, replace = true })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1, replace = true })
     bp = bps.get_breakpoints()[1]
     assert.equals(1, signs.get_sign_id_data(bp.sign_id, bp.bufnr).lnum)
     assert.are.same({ { buffer, 1 } }, get_dap_breakpoints())
 
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1 })
     assert.are.same({}, bps.get_breakpoints())
     assert.are.same({}, get_dap_breakpoints())
   end)
 
   it("setup meta breakpoint and add line", function()
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1 })
     local bp = bps.get_breakpoints()[1]
     vim.api.nvim_buf_set_lines(buffer, 0, 0, false, { '0' })
     assert.equals(2, signs.get_sign_id_data(bp.sign_id, bp.bufnr).lnum)
   end)
 
   it("toggle_dap_breakpoint is false", function()
-    bps.toggle_meta_breakpoint({ toggle_dap_breakpoint = false }, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, { toggle_dap_breakpoint = false }, { bufnr = buffer, lnum = 1 })
     local bp = bps.get_breakpoints()[1]
     assert.equals(1, signs.get_sign_id_data(bp.sign_id, bp.bufnr).lnum)
     assert.are.same({}, get_dap_breakpoints())
   end)
 
+  it('checks dap options are saved', function()
+    local dap_opts = {condition = 'a', hit_condition = 'b', log_message = 'c'}
+    bps.toggle_meta_breakpoint(dap_opts, {}, { bufnr = buffer, lnum = 1 })
+    local dap_breakpoint = dap_bps.get()[buffer][1]
+
+    local expected_dap_opts = {condition = 'a', hitCondition = 'b', logMessage = 'c'}
+    for key, value in pairs(expected_dap_opts) do
+      assert.equals(value, dap_breakpoint[key])
+    end
+  end)
+
   it('hit hook', function()
     local s = spy.new(function() end)
-    bps.toggle_meta_breakpoint({ hit_hook = 'l1' }, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, { hit_hook = 'l1' }, { bufnr = buffer, lnum = 1 })
     hooks.register_to_hook('l1', 1, s)
     bps.trigger_hooks(buffer, 1)
 
     assert.spy(s).was.called(1)
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1 })
     bps.trigger_hooks(buffer, 1)
     assert.spy(s).was.called(1)
   end)
 
   it('remove hook', function()
     local s = spy.new(function() end)
-    bps.toggle_meta_breakpoint({ remove_hook = 'l1' }, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, { remove_hook = 'l1' }, { bufnr = buffer, lnum = 1 })
     hooks.register_to_hook('l1', 1, s)
 
     assert.spy(s).was.called(0)
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1 })
     assert.spy(s).was.called(1)
   end)
 
   it("simple hook breakpoint", function()
-    bps.toggle_meta_breakpoint({ hit_hook = 'l1' }, { bufnr = buffer, lnum = 1 })
-    bps.toggle_hook_breakpoint({ trigger_hook = 'l1' }, { bufnr = buffer, lnum = 2 })
+    bps.toggle_meta_breakpoint({}, { hit_hook = 'l1' }, { bufnr = buffer, lnum = 1 })
+    bps.toggle_hook_breakpoint({}, { trigger_hook = 'l1' }, { bufnr = buffer, lnum = 2 })
     assert.are.same({ { buffer, 1 } }, get_dap_breakpoints())
     bps.trigger_hooks(buffer, 1)
 
@@ -92,9 +102,16 @@ describe("test breakpoints without persistence", function()
     assert.are.same({ { buffer, 1 } }, get_dap_breakpoints())
   end)
 
+  it("puts meta breakpoint on hook breakpoint", function()
+    bps.toggle_hook_breakpoint({}, { trigger_hook = 'l2' }, { bufnr = buffer, lnum = 2 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 2 })
+    assert.are.same({}, bps.get_breakpoints())
+    assert.are.same({}, get_dap_breakpoints())
+  end)
+
   it("hook breakpoint with added lines", function()
-    bps.toggle_meta_breakpoint({ hit_hook = 'l1' }, { bufnr = buffer, lnum = 1 })
-    bps.toggle_hook_breakpoint({ trigger_hook = 'l1' }, { bufnr = buffer, lnum = 2 })
+    bps.toggle_meta_breakpoint({}, { hit_hook = 'l1' }, { bufnr = buffer, lnum = 1 })
+    bps.toggle_hook_breakpoint({}, { trigger_hook = 'l1' }, { bufnr = buffer, lnum = 2 })
     assert.are.same({ { buffer, 1 } }, get_dap_breakpoints())
 
     vim.api.nvim_buf_set_lines(buffer, 1, 1, false, { '11' })
@@ -112,11 +129,11 @@ describe("test breakpoints without persistence", function()
   it("checks multiple buffers", function()
     local buffer2 = vim.api.nvim_create_buf(true, false)
     vim.api.nvim_buf_set_lines(buffer2, 0, -1, false, { "1", "2", "3", "4", "5" })
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 1 })
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer2, lnum = 2 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer2, lnum = 2 })
 
     local breakpoints = bps.get_breakpoints()
-    assert(#breakpoints == 2)
+    assert.equals(2, #breakpoints)
     local bp1 = breakpoints[1]
     local bp2 = breakpoints[2]
     assert.equals(1, signs.get_sign_id_data(bp1.sign_id, bp1.bufnr).lnum)
@@ -205,7 +222,7 @@ describe("test breakpoints with persistence", function()
 
     local new_bufnr = vim.uri_to_bufnr(file_name)
     vim.fn.bufload(new_bufnr)
-    assert(new_bufnr ~= bufnr)
+    assert.are_not.equals(bufnr, new_bufnr)
     print(string.format("created new buffer %s old one was %s", new_bufnr, bufnr))
 
     local load_opts
@@ -222,39 +239,39 @@ describe("test breakpoints with persistence", function()
   end
 
   it("checks meta breakpoint is saved", function()
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1 })
     buffer = assert_saved_breakpoints(buffer)
   end)
 
   it("checks meta breakpoint is saved after being moved", function()
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1 })
     vim.api.nvim_buf_set_lines(buffer, 0, 0, false, { '0' })
     buffer = assert_saved_breakpoints(buffer)
   end)
 
   it("checks load breakpoints doesn't change current buffer", function()
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1 })
     save_breakpoints(buffer)
     load_breakpoints({bufnr = false})
     local bp = bps.get_breakpoints()[1]
-    assert(bp)
+    assert.truthy(bp)
     assert.equals(1, signs.get_sign_id_data(bp.sign_id, bp.bufnr).lnum)
   end)
 
   it('checks load per buffer', function()
     local second_buffer = vim.uri_to_bufnr('file://' .. file .. '2')
     vim.api.nvim_buf_set_lines(second_buffer, 0, -1, false, { "11", "12", "13", "14", "15" })
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 1 })
-    bps.toggle_meta_breakpoint({}, { bufnr = second_buffer, lnum = 2 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = second_buffer, lnum = 2 })
 
     local bp_before_saving = bps.get_breakpoints()[2]
     save_breakpoints(second_buffer)
-    assert(#bps.get_breakpoints() == 2)
+    assert.equals(2, #bps.get_breakpoints())
     buffer = assert_saved_breakpoints(buffer)
 
     vim.print(bps.get_breakpoints())
     local all_breakpoints = bps.get_breakpoints()
-    assert(#all_breakpoints == 2)
+    assert.equals(2, #bps.get_breakpoints())
     local bp1 = all_breakpoints[1]
     local bp2 = all_breakpoints[2]
     assert.are.same(bp_before_saving, bp1)
@@ -265,12 +282,35 @@ describe("test breakpoints with persistence", function()
   end)
 
   it('checks removed breakpoint does not persist', function()
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 3 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 3 })
     buffer = assert_saved_breakpoints(buffer, {bufnr = buffer})
-    bps.toggle_meta_breakpoint({}, { bufnr = buffer, lnum = 3 })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 3 })
     save_breakpoints()
     load_breakpoints()
     assert.equals(0, #bps.get_breakpoints())
+  end)
+
+  it('checks setting persistent to false does not get overridden by default value', function()
+    bps.toggle_meta_breakpoint({}, {persistent = false}, { bufnr = buffer, lnum = 3 })
+    assert.equals(false, bps.get_breakpoints(buffer)[1].meta.persistent)
+    save_breakpoints()
+    bps.clear()
+    load_breakpoints()
+    assert.equals(0, #bps.get_breakpoints())
+  end)
+
+  it('checks dap_opts and meta_opts are saved', function()
+    local dap_opts = {condition = 'a', hit_condition = 'b', log_message = 'c'}
+    local meta_opts = { hit_hook = 'd', trigger_hook = 'e', remove_hook = 'f', toggle_dap_breakpoint = false}
+    bps.toggle_meta_breakpoint(dap_opts, meta_opts, { bufnr = buffer, lnum = 1 })
+    buffer = assert_saved_breakpoints(buffer)
+    local breakpoint = bps.get_breakpoints(buffer)[1]
+    for key, value in pairs(dap_opts) do
+      assert.equals(value, breakpoint.dap_opts[key])
+    end
+    for key, value in pairs(meta_opts) do
+      assert.equals(value, breakpoint.meta[key])
+    end
   end)
 
   pending('checks closing then opening buffer keeps breakpoint, needs to setup different config')
