@@ -1,7 +1,6 @@
 local M = {}
 
 local breakpoints = require('meta-breakpoints.breakpoint_base')
-local persistence = require('meta-breakpoints.persistence')
 local config = require('meta-breakpoints.config')
 local hooks = require('meta-breakpoints.hooks')
 local ui = require('meta-breakpoints.ui')
@@ -22,7 +21,7 @@ function M.setup(opts)
     if config.persistent_breakpoints.save_breakpoints_on_buf_write then
       vim.api.nvim_create_autocmd({ 'BufWritePost' }, {
         pattern = { "*" },
-        callback = function() persistence.update_buf_breakpoints(0, true) end
+        callback = function() breakpoints.update_buf_breakpoints(0, true) end
       })
     end
   end
