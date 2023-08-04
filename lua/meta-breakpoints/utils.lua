@@ -31,6 +31,7 @@ function M.ensure_plugin_directory(callback)
   local bp_file = M.get_breakpoints_file()
   uv.fs_stat(plugin_dir, function(err, _)
     if err ~= nil then
+      log.fmt_trace("Plugin directory %s not found, creating directory", plugin_dir)
       uv.fs_mkdir(plugin_dir, 448, vim.schedule_wrap(function(err, _)
         assert(not err, err)
         save_breakpoints_to_file(bp_file, {}, callback)
@@ -38,6 +39,7 @@ function M.ensure_plugin_directory(callback)
     else
       uv.fs_stat(bp_file, vim.schedule_wrap(function(err, _)
         if err ~= nil then
+          log.fmt_trace("Breakpoint file %s not found", bp_file)
           save_breakpoints_to_file(bp_file, {}, callback)
         else
           callback()

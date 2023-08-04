@@ -13,6 +13,7 @@ describe("test breakpoints persistence", function()
         enabled = true,
         persistent_by_default = true,
         load_breakpoints_on_setup = false,
+        load_breakpoints_on_buf_enter = false,
         save_breakpoints_on_buf_write = false,
         persist_on_placement = false,
       },
@@ -20,8 +21,7 @@ describe("test breakpoints persistence", function()
     })
 
   before_each(function()
-    local file_uri = 'file://' .. file
-    buffer = vim.uri_to_bufnr(file_uri)
+    buffer = vim.uri_to_bufnr(vim.uri_from_fname(file))
     vim.fn.bufload(buffer)
     vim.api.nvim_buf_set_lines(buffer, 0, -1, false, { "11", "12", "13", "14", "15" })
   end)
@@ -168,6 +168,54 @@ describe("test breakpoints persistence", function()
     for key, value in pairs(meta_opts) do
       assert.equals(value, breakpoint.meta[key])
     end
+  end)
+
+  it('checks set_persistent_breakpoints', function()
+    local second_buffer = vim.uri_to_bufnr('file://' .. file .. '2')
+    vim.api.nvim_buf_set_lines(second_buffer, 0, -1, false, { "11", "12", "13", "14", "15" })
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1 })
+    local placed_bps = bps.get_breakpoints(buffer)
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = second_buffer, lnum = 2 })
+    save_breakpoints()
+
+    vim.api.nvim_buf_delete(buffer, {force = true})
+    buffer = vim.uri_to_bufnr(vim.uri_from_fname(file))
+    local session = {request = function(_, _, _, callback) vim.schedule(callback) end}
+    local co = coroutine.running()
+    local loaded_breakpoints = nil
+    bps.set_persistent_breakpoints(session, function(result)
+      loaded_breakpoints = result
+      coroutine.resume(co)
+    end)
+    coroutine.yield()
+
+    assert.are.same({}, bps.get_breakpoints(buffer))
+    assert.are.same({{{lnum = 1, dap_opts = {}, meta_opts = placed_bps[1].meta}}}, loaded_breakpoints)
+
+    vim.fn.bufload(buffer) -- check again for loaded buffer without signs
+    loaded_breakpoints = nil
+    bps.set_persistent_breakpoints(session, function(result)
+      loaded_breakpoints = result
+      coroutine.resume(co)
+    end)
+    coroutine.yield()
+
+    assert.are.same({}, bps.get_breakpoints(buffer))
+    assert.are.same({{{lnum = 1, dap_opts = {}, meta_opts = placed_bps[1].meta}}}, loaded_breakpoints)
+
+    uv.fs_unlink(file .. '2')
+  end)
+
+  it('checks ensure_persistent_breakpoints', function()
+    bps.toggle_meta_breakpoint({}, {}, { bufnr = buffer, lnum = 1 })
+    local placed_bps = bps.get_breakpoints(buffer)
+    save_breakpoints()
+
+    vim.api.nvim_buf_delete(buffer, {force = true})
+    buffer = vim.uri_to_bufnr(vim.uri_from_fname(file))
+    assert.are.same({}, bps.get_breakpoints(buffer))
+    bps.ensure_persistent_breakpoints(buffer)
+    assert.are.same(placed_bps[1].meta, bps.get_breakpoints(buffer)[1].meta)
   end)
 
   pending('checks closing then opening buffer keeps breakpoint, needs to setup different config')

@@ -12,8 +12,8 @@ end
 
 --- Asynchronously get persistent breakpoints
 ---@param per_bp_callback fun(filename: string, persistent_data: PersistentBreakpointFileData)
----@param callback fun()
-function M.get_persistent_breakpoints(per_bp_callback, callback)
+---@param callback fun()|nil
+function M.read_persistent_breakpoints(per_bp_callback, callback)
   persistent_breakpoints = {}
   utils.read_breakpoints(function(files_data)
     for file_name, breakpoints_data in pairs(files_data) do
@@ -37,6 +37,12 @@ end
 ---@param update_file boolean
 ---@param callback fun()|nil
 function M.update_file_breakpoints(file_name, breakpoints_data, update_file, callback)
+  -- TODO no need to always update, if the buffer does not have persistent breakpoints
+  -- if it has, check if the lnums have changed or a breakpoint was added/removed
+
+  -- TODO When there are two nvim sessions working at the same time you will have issues
+  -- where the file will alternate according to each instance, probably need to stat the file for changes
+  -- and load all the breakpoints before saving again
   persistent_breakpoints[file_name] = breakpoints_data
   if #breakpoints_data == 0 then
     persistent_breakpoints[file_name] = nil
@@ -55,6 +61,10 @@ function M.clear(callback)
     persistent_breakpoints[key] = nil
   end
   save_breakpoints(persistent_breakpoints, callback)
+end
+
+function M.get_persistent_breakpoints()
+  return persistent_breakpoints
 end
 
 return M

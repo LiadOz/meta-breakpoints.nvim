@@ -43,7 +43,12 @@ function M.update_buf_breakpoints(bufnr, update_file, callback)
   local file_name = vim.uri_to_fname(vim.uri_from_bufnr(bufnr))
   for _, breakpoint_data in ipairs(breakpoints_data) do
     if breakpoint_data.meta.persistent then
-      table.insert(persistent_data, {lnum = get_breakpoint_lnum(breakpoint_data), dap_opts = breakpoint_data.dap_opts, meta_opts = breakpoint_data.meta})
+      table.insert(persistent_data,
+        {
+          lnum = get_breakpoint_lnum(breakpoint_data),
+          dap_opts = breakpoint_data.dap_opts,
+          meta_opts = breakpoint_data.meta
+        })
     end
   end
   persistence.update_file_breakpoints(file_name, persistent_data, update_file, callback)
@@ -178,29 +183,53 @@ function M.toggle_meta_breakpoint(dap_opts, meta_opts, placement_opts)
   return bp
 end
 
----@param callback function
+---@param bufnr number
+---@param persistent_data PersistentBreakpointFileData
+local function load_buffer_persistent_breakpoint(bufnr, persistent_data)
+  local meta_opts = persistent_data.meta_opts
+  local dap_opts = persistent_data.dap_opts
+
+  local placement_opts = setup_placement_opts({ bufnr = bufnr, lnum = persistent_data.lnum })
+  if meta_opts.type == 'hook' then
+    M.toggle_hook_breakpoint(dap_opts, meta_opts, placement_opts)
+  else
+    M.toggle_meta_breakpoint(dap_opts, meta_opts, placement_opts)
+  end
+end
+
+---@param callback function|nil
 ---@param opts {all_buffers: boolean, bufnr: number}|nil
 function M.load_persistent_breakpoints(callback, opts)
-  opts = opts or {all_buffers = true}
+  opts = opts or { all_buffers = true }
   local target_bufnr = opts.bufnr == 0 and vim.fn.bufnr() or opts.bufnr
   if opts.all_buffers then
     log.debug('loading breakpoints in all buffers clearing all breakpoints')
     M.clear()
   end
-  persistence.get_persistent_breakpoints(function(fname, persistent_data)
+  persistence.read_persistent_breakpoints(function(fname, persistent_data)
+    if vim.fn.bufloaded(fname) == 0 then
+      return
+    end
     local bufnr = vim.uri_to_bufnr(vim.uri_from_fname(fname))
     if opts.all_buffers or bufnr == target_bufnr then
-      local meta_opts = persistent_data.meta_opts
-      local dap_opts = persistent_data.dap_opts
-
-      local placement_opts = setup_placement_opts({bufnr = bufnr, lnum = persistent_data.lnum})
-      if meta_opts.type == 'hook' then
-        M.toggle_hook_breakpoint(dap_opts, meta_opts, placement_opts)
-      else
-        M.toggle_meta_breakpoint(dap_opts, meta_opts, placement_opts)
-      end
+      load_buffer_persistent_breakpoint(bufnr, persistent_data)
     end
   end, callback)
+end
+
+---@param bufnr number
+function M.ensure_persistent_breakpoints(bufnr)
+  if #M.get_breakpoints(bufnr) == 0 then
+    -- TODO this needs to be a module function, and test it
+    local fname = vim.uri_to_fname(vim.uri_from_bufnr(bufnr))
+    local persistent_breakpoints = persistence.get_persistent_breakpoints()[fname]
+    if not persistent_breakpoints or #persistent_breakpoints == 0 then
+      return
+    end
+    for _, data in pairs(persistent_breakpoints) do
+      load_buffer_persistent_breakpoint(bufnr, data)
+    end
+  end
 end
 
 --- Place a hook breakpoint
@@ -225,13 +254,13 @@ function M.toggle_hook_breakpoint(dap_opts, meta_opts, placement_opts)
   end
 
   local function place_breakpoint()
-    toggle_dap_breakpoint(dap_opts, {bufnr = bp.bufnr, lnum = get_breakpoint_lnum(bp)})
+    toggle_dap_breakpoint(dap_opts, { bufnr = bp.bufnr, lnum = get_breakpoint_lnum(bp) })
     if dap.session() then
       dap.continue()
     end
   end
   local function remove_breakpoint()
-    toggle_dap_breakpoint({}, {bufnr = bp.bufnr, lnum = get_breakpoint_lnum(bp)})
+    toggle_dap_breakpoint({}, { bufnr = bp.bufnr, lnum = get_breakpoint_lnum(bp) })
   end
 
   local function on_remove()
@@ -244,8 +273,62 @@ function M.toggle_hook_breakpoint(dap_opts, meta_opts, placement_opts)
   hook_id_count = hook_id_count + 1
 end
 
+function M.set_persistent_breakpoints(session, callback)
+  local persistent_breakpoints = persistence.get_persistent_breakpoints()
+  local unloaded_files = {}
+  for file_name, _ in pairs(persistent_breakpoints) do
+    if vim.fn.bufloaded(file_name) == 0 or #M.get_breakpoints(vim.uri_to_bufnr(vim.uri_from_fname(file_name))) == 0 then
+      table.insert(unloaded_files, file_name)
+    end
+  end
+  local loaded_breakpoints = {}
+  if #unloaded_files == 0 then
+    callback(loaded_breakpoints)
+  end
+  local num_requests = #unloaded_files
+  for _, file_name in pairs(unloaded_files) do
+    local file_breakpoints = persistent_breakpoints[file_name]
+    table.insert(loaded_breakpoints, file_breakpoints)
+    local payload = {
+      source = {
+        path = file_name,
+        name = vim.fn.fnamemodify(file_name, ':t')
+      },
+      sourceModified = false,
+      breakpoints = vim.tbl_map(
+        function(bp)
+          -- trim extra information like the state
+          return {
+            line = bp.lnum,
+            condition = bp.dap_opts.condition,
+            hitCondition = bp.dap_opts.hit_condition,
+            logMessage = bp.dap_opts.log_message,
+          }
+        end,
+        file_breakpoints
+      ),
+      lines = vim.tbl_map(function(x) return x.lnum end, file_breakpoints),
+    }
+    session:request('setBreakpoints', payload, function(err, resp)
+      if err then
+        log.fmt_error("Failed to set persistent breakpoint of file %s, error: %s", file_name, err)
+      elseif resp then
+        for _, bp in pairs(resp.breakpoints) do
+          if not bp.verified then
+            log.fmt_warning("Server rejected breakpoint in %s:%s", file_name, bp.line)
+          end
+        end
+      end
+      num_requests = num_requests - 1
+      if num_requests == 0 and callback then
+        callback(loaded_breakpoints)
+      end
+    end)
+  end
+end
+
 function M.simple_meta_breakpoint(hook_name)
-  M.toggle_meta_breakpoint({}, {type = 'meta', hit_hook = hook_name})
+  M.toggle_meta_breakpoint({}, { type = 'meta', hit_hook = hook_name })
 end
 
 ---@param bufnr number|nil
@@ -270,6 +353,21 @@ function M.clear()
   bp_by_id = {}
 end
 
-dap.listeners.after.stackTrace['meta-breakpoints.trigger_hooks'] = function() M.trigger_hooks() end
+dap.listeners.after.event_initialized['meta-breakpoints.initialize'] = function(session)
+  local completed = false
+  M.set_persistent_breakpoints(session, function() completed = true end)
+  vim.wait(5000, function()
+    return completed
+  end)
+  if not completed then
+    log.fmt_error("Setting persistent breakpoints has timed out")
+  end
+end
+
+dap.listeners.after.stackTrace['meta-breakpoints.trigger_hooks'] = function()
+  local bufnr = vim.api.nvim_get_current_buf()
+  M.ensure_persistent_breakpoints(bufnr)
+  M.trigger_hooks(bufnr)
+end
 
 return M

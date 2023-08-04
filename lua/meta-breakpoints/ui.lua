@@ -1,6 +1,7 @@
 local M = {}
 local NEW_HOOK_PROMPT = 'Create new hook: '
 local breakpoints = require('meta-breakpoints.breakpoint_base')
+local persistence = require('meta-breakpoints.persistence')
 local hooks = require('meta-breakpoints.hooks')
 
 
@@ -10,6 +11,11 @@ local function get_hooks()
     local hook_name = bp.meta.hit_hook or nil
     if hook_name and string.sub(hook_name, 0, 8) ~= 'INTERNAL' then
       curr_hooks[hook_name] = true
+    end
+  end
+  for _, persistent_breakpoints in pairs(persistence.get_persistent_breakpoints()) do
+    for _, pb in pairs(persistent_breakpoints) do
+      curr_hooks[pb.meta_opts.hit_hook] = true
     end
   end
   for hook_name, _ in pairs(hooks.get_all_hooks()) do

@@ -9,6 +9,7 @@ describe("test persistent data", function()
     plugin_directory = plugin_dir,
     persistent_breakpoints = {
       load_breakpoints_on_setup = false,
+      load_breakpoints_on_buf_enter = false,
     },
   })
 
