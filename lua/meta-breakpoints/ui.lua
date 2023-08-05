@@ -1,20 +1,25 @@
 local M = {}
 local NEW_HOOK_PROMPT = 'Create new hook: '
 local breakpoints = require('meta-breakpoints.breakpoint_base')
+local persistence = require('meta-breakpoints.persistence')
 local hooks = require('meta-breakpoints.hooks')
 
 
 local function get_hooks()
   local curr_hooks = {}
-  for _, bp in ipairs(breakpoints.get_all_breakpoints()) do
-    local hook_name = bp.meta.hook_name or nil
-    if hook_name and string.sub(hook_name, 0, 8) ~= 'INTERNAL' then
+  for _, bp in ipairs(breakpoints.get_breakpoints()) do
+    local hook_name = bp.meta.hit_hook or nil
+    if hook_name and string.sub(hook_name, 0, 1) ~= '_' then
       curr_hooks[hook_name] = true
     end
   end
+  for _, persistent_breakpoints in pairs(persistence.get_persistent_breakpoints()) do
+    for _, pb in pairs(persistent_breakpoints) do
+      curr_hooks[pb.meta_opts.hit_hook] = true
+    end
+  end
   for hook_name, _ in pairs(hooks.get_all_hooks()) do
-    print(string.sub(hook_name, 0, 8))
-    if string.sub(hook_name, 0, 8) ~= 'INTERNAL' then
+    if string.sub(hook_name, 0, 1) ~= '_' then
       curr_hooks[hook_name] = true
     end
   end
@@ -26,7 +31,7 @@ local function get_hooks()
 end
 
 
-local function prompt_hook_name_selection(on_selection)
+local function prompt_hit_hook_selection(on_selection)
   vim.ui.select(get_hooks(), {
     prompt = 'Select hook name:',
     kind = 'hook_name'
@@ -43,51 +48,48 @@ end
 
 
 local function should_remove(replace_old)
-  if not replace_old and breakpoints.get_breakpoint() then
+  if not replace_old and breakpoints.get_breakpoint_at_cursor() then
     return true
   end
   return false
 end
 
-function M.toggle_meta_breakpoint(bp_opts, replace_old, prompt_hook)
-  bp_opts = bp_opts or {}
+function M.toggle_meta_breakpoint(dap_opts, meta_opts, replace_old, prompt_hook)
+  meta_opts = meta_opts or {}
   if prompt_hook == nil then
     prompt_hook = false
   end
-  -- check if breakpoitns exist here if it does you want to only remove it unless replace_old is used
-  if should_remove() or (bp_opts.meta and bp_opts.meta.hook_name) or prompt_hook == false then
-    breakpoints.toggle_meta_breakpoint(bp_opts, replace_old)
+  -- check if breakpoints exist here if it does you want to only remove it unless replace_old is used
+  if should_remove() or (meta_opts and meta_opts.hit_hook) or prompt_hook == false then
+    breakpoints.toggle_meta_breakpoint(dap_opts, meta_opts, replace_old)
     return
   end
-  prompt_hook_name_selection(function(selection)
+  prompt_hit_hook_selection(function(selection)
     if not selection then
       return
     end
-    if not bp_opts.meta then
-      bp_opts.meta = { hook_name = selection }
+    if not meta_opts then
+      meta_opts = { hit_hook = selection }
     else
-      bp_opts.meta.hook_name = selection
+      meta_opts.hit_hook = selection
     end
-    breakpoints.toggle_meta_breakpoint(bp_opts, replace_old)
+    breakpoints.toggle_meta_breakpoint(dap_opts, meta_opts, replace_old)
   end)
 end
 
-function M.toggle_hook_breakpoint(bp_opts, replace_old)
-  bp_opts = bp_opts or {}
-  local meta_opts = bp_opts.meta or {}
+function M.toggle_hook_breakpoint(dap_opts, meta_opts, replace_old)
+  meta_opts = meta_opts or {}
   if should_remove(replace_old) or meta_opts.trigger_hook then
     if meta_opts.trigger_hook == nil then
       meta_opts.trigger_hook = ''
     end
-    bp_opts.meta = meta_opts
-    breakpoints.toggle_hook_breakpoint(bp_opts, replace_old)
+    breakpoints.toggle_hook_breakpoint(dap_opts, meta_opts, replace_old)
     return
   end
-  prompt_hook_name_selection(function(selection)
+  prompt_hit_hook_selection(function(selection)
     if selection then
       meta_opts.trigger_hook = selection
-      bp_opts.meta = meta_opts
-      breakpoints.toggle_hook_breakpoint(bp_opts, replace_old)
+      breakpoints.toggle_hook_breakpoint(dap_opts, meta_opts, replace_old)
     end
   end)
 end
