@@ -1,54 +1,49 @@
 local M = {}
 
 ---@alias PersistentBreakpointFileData {lnum: number, dap_opts: DapOpts, meta_opts: MetaOpts}
----@type table<string, PersistentBreakpointFileData[]>
+---@alias PersistentBreakpointsTable table<string, PersistentBreakpointFileData[]>
+
+---@type PersistentBreakpointsTable
 local persistent_breakpoints = {}
 
 local utils = require('meta-breakpoints.utils')
 
-local function save_breakpoints(breakpoints, callback)
-  utils.save_breakpoints(breakpoints, callback)
+local function save_file_breakpoints(file_name, breakpoints, callback)
+  utils.read_breakpoints(function(files_data)
+    files_data[file_name] = breakpoints
+    utils.save_breakpoints(files_data, callback)
+  end)
 end
 
 --- Asynchronously get persistent breakpoints
----@param per_bp_callback fun(filename: string, persistent_data: PersistentBreakpointFileData)
----@param callback fun()|nil
-function M.read_persistent_breakpoints(per_bp_callback, callback)
+---@param callback fun(breakpoints: PersistentBreakpointsTable)
+function M.read_persistent_breakpoints(callback)
   persistent_breakpoints = {}
   utils.read_breakpoints(function(files_data)
     for file_name, breakpoints_data in pairs(files_data) do
-      local saved_breakpoints = {}
-      for _, breakpoint_data in ipairs(breakpoints_data) do
-        table.insert(saved_breakpoints, breakpoint_data)
-        pcall(per_bp_callback, file_name, breakpoint_data)
-      end
-      if #saved_breakpoints > 0 then
-        persistent_breakpoints[file_name] = saved_breakpoints
+      if #breakpoints_data > 0 then
+        persistent_breakpoints[file_name] = breakpoints_data
       end
     end
     if callback then
-      callback()
+      callback(persistent_breakpoints)
     end
   end)
 end
 
+local log = require('meta-breakpoints.log')
 ---@param file_name string
----@param breakpoints_data PersistentBreakpointFileData[]
+---@param breakpoints_data PersistentBreakpointFileData[]|nil
 ---@param update_file boolean
+---@param override_changed boolean still update file if the breakpoints have been already updated
 ---@param callback fun()|nil
-function M.update_file_breakpoints(file_name, breakpoints_data, update_file, callback)
-  -- TODO no need to always update, if the buffer does not have persistent breakpoints
-  -- if it has, check if the lnums have changed or a breakpoint was added/removed
+function M.update_file_breakpoints(file_name, breakpoints_data, update_file, override_changed, callback)
+  override_changed = override_changed or false
+  local changed = not vim.deep_equal(breakpoints_data, persistent_breakpoints[file_name])
 
-  -- TODO When there are two nvim sessions working at the same time you will have issues
-  -- where the file will alternate according to each instance, probably need to stat the file for changes
-  -- and load all the breakpoints before saving again
   persistent_breakpoints[file_name] = breakpoints_data
-  if #breakpoints_data == 0 then
-    persistent_breakpoints[file_name] = nil
-  end
-  if update_file then
-    save_breakpoints(persistent_breakpoints, callback)
+  if update_file and (changed or override_changed) then
+    save_file_breakpoints(file_name, breakpoints_data, callback)
   else
     if callback then
       vim.schedule(callback)
@@ -60,7 +55,7 @@ function M.clear(callback)
   for key, _ in pairs(persistent_breakpoints) do
     persistent_breakpoints[key] = nil
   end
-  save_breakpoints(persistent_breakpoints, callback)
+  utils.save_breakpoints(persistent_breakpoints, callback)
 end
 
 function M.get_persistent_breakpoints()

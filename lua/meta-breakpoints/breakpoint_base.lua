@@ -8,7 +8,7 @@ local M = {}
 
 ---@type table<number, BreakpointData>
 local bp_by_id = {}
-local hook_id_count = 0
+local hook_breakpoint_count = 0
 local signs = require('meta-breakpoints.signs')
 local dap = require('dap')
 local breakpoints = require('dap.breakpoints')
@@ -33,7 +33,7 @@ local function get_breakpoint_lnum(bp)
   return signs.get_sign_id_data(bp.sign_id, bp.bufnr).lnum
 end
 
-function M.update_buf_breakpoints(bufnr, update_file, callback)
+function M.update_buf_breakpoints(bufnr, update_file, override_changed, callback)
   if bufnr == nil or bufnr == 0 then
     bufnr = vim.api.nvim_get_current_buf()
   end
@@ -42,16 +42,27 @@ function M.update_buf_breakpoints(bufnr, update_file, callback)
   local persistent_data = {}
   local file_name = vim.uri_to_fname(vim.uri_from_bufnr(bufnr))
   for _, breakpoint_data in ipairs(breakpoints_data) do
-    if breakpoint_data.meta.persistent then
+    local meta_opts = breakpoint_data.meta
+    if meta_opts.persistent then
+      meta_opts = vim.deepcopy(meta_opts)
+      if meta_opts.hit_hook and string.sub(meta_opts.hit_hook, 0, 1) == '_' then
+        meta_opts.hit_hook = nil
+      end
+      if meta_opts.remove_hook and string.sub(meta_opts.remove_hook, 0, 1) == '_' then
+        meta_opts.remote_hook = nil
+      end
       table.insert(persistent_data,
         {
           lnum = get_breakpoint_lnum(breakpoint_data),
           dap_opts = breakpoint_data.dap_opts,
-          meta_opts = breakpoint_data.meta
+          meta_opts = meta_opts
         })
     end
   end
-  persistence.update_file_breakpoints(file_name, persistent_data, update_file, callback)
+  if #persistent_data == 0 then
+    persistent_data = nil
+  end
+  persistence.update_file_breakpoints(file_name, persistent_data, update_file, override_changed, callback)
 end
 
 ---@param bufnr number
@@ -147,6 +158,7 @@ function M.toggle_meta_breakpoint(dap_opts, meta_opts, placement_opts)
   placement_opts = setup_placement_opts(placement_opts)
   local bufnr = placement_opts.bufnr
   local lnum = placement_opts.lnum
+  log.fmt_trace('toggling breakpoint at bufnr:%s lnum:%s', bufnr, lnum)
 
   if meta_opts.persistent == nil then
     meta_opts.persistent = config.persistent_breakpoints.persistent_by_default
@@ -197,30 +209,40 @@ local function load_buffer_persistent_breakpoint(bufnr, persistent_data)
   end
 end
 
+local count = 0
 ---@param callback function|nil
 ---@param opts {all_buffers: boolean, bufnr: number}|nil
 function M.load_persistent_breakpoints(callback, opts)
+  local my_count = count
+  count = count + 1
   opts = opts or { all_buffers = true }
   local target_bufnr = opts.bufnr == 0 and vim.fn.bufnr() or opts.bufnr
   if opts.all_buffers then
     log.debug('loading breakpoints in all buffers clearing all breakpoints')
     M.clear()
   end
-  persistence.read_persistent_breakpoints(function(fname, persistent_data)
-    if vim.fn.bufloaded(fname) == 0 then
-      return
+  persistence.read_persistent_breakpoints(function(persistent_breakpoints)
+    for fname, breakpoints_data in pairs(persistent_breakpoints) do
+      if vim.fn.bufloaded(fname) == 0 then
+        goto continue
+      end
+      local bufnr = vim.uri_to_bufnr(vim.uri_from_fname(fname))
+      for _, persistent_data in pairs(breakpoints_data) do
+        if opts.all_buffers or bufnr == target_bufnr then
+          load_buffer_persistent_breakpoint(bufnr, persistent_data)
+        end
+      end
+      ::continue::
     end
-    local bufnr = vim.uri_to_bufnr(vim.uri_from_fname(fname))
-    if opts.all_buffers or bufnr == target_bufnr then
-      load_buffer_persistent_breakpoint(bufnr, persistent_data)
+    if callback then
+      callback()
     end
-  end, callback)
+  end)
 end
 
 ---@param bufnr number
 function M.ensure_persistent_breakpoints(bufnr)
   if #M.get_breakpoints(bufnr) == 0 then
-    -- TODO this needs to be a module function, and test it
     local fname = vim.uri_to_fname(vim.uri_from_bufnr(bufnr))
     local persistent_breakpoints = persistence.get_persistent_breakpoints()[fname]
     if not persistent_breakpoints or #persistent_breakpoints == 0 then
@@ -244,8 +266,8 @@ function M.toggle_hook_breakpoint(dap_opts, meta_opts, placement_opts)
   local trigger_hook = meta_opts.trigger_hook
 
   meta_opts.type = 'hook'
-  meta_opts.hit_hook = meta_opts.hit_hook or string.format("INTERNAL-hit-%s", hook_id_count)
-  meta_opts.remove_hook = meta_opts.remove_hook or string.format("INTERNAL-remove-%s", hook_id_count)
+  meta_opts.hit_hook = meta_opts.hit_hook or string.format("_hit-%s", hook_breakpoint_count)
+  meta_opts.remove_hook = meta_opts.remove_hook or string.format("_remove-%s", hook_breakpoint_count)
   meta_opts.toggle_dap_breakpoint = false
 
   local bp = M.toggle_meta_breakpoint(dap_opts, meta_opts, placement_opts)
@@ -263,14 +285,17 @@ function M.toggle_hook_breakpoint(dap_opts, meta_opts, placement_opts)
     toggle_dap_breakpoint({}, { bufnr = bp.bufnr, lnum = get_breakpoint_lnum(bp) })
   end
 
+  local trigger_id = hooks.register_to_hook(trigger_hook, place_breakpoint)
+  local hit_id = hooks.register_to_hook(meta_opts.hit_hook, remove_breakpoint)
+
   local function on_remove()
-    hooks.remove_hook(meta_opts.hit_hook, hook_id_count)
-    hooks.remove_hook(trigger_hook, hook_id_count)
+    hooks.remove_hook(meta_opts.hit_hook, hit_id)
+    hooks.remove_hook(trigger_hook, trigger_id)
+    hooks.remove_hook(meta_opts.remove_hook)
   end
-  hooks.register_to_hook(trigger_hook, hook_id_count, place_breakpoint)
-  hooks.register_to_hook(meta_opts.hit_hook, hook_id_count, remove_breakpoint)
-  hooks.register_to_hook(meta_opts.remove_hook, hook_id_count, on_remove)
-  hook_id_count = hook_id_count + 1
+
+  hooks.register_to_hook(meta_opts.remove_hook, on_remove)
+  hook_breakpoint_count = hook_breakpoint_count + 1
 end
 
 function M.set_persistent_breakpoints(session, callback)
@@ -340,7 +365,11 @@ function M.trigger_hooks(bufnr, lnum)
   if not bp then
     return
   end
+  if not bp.meta.hit_hook then
+    return
+  end
   local hooks_list = hooks.get_hooks_mapping(bp.meta.hit_hook) or {}
+  log.fmt_trace('Calling hook %s registered functions (x%s)', bp.meta.hit_hook, #hooks_list)
   for _, func in pairs(hooks_list) do
     func()
   end

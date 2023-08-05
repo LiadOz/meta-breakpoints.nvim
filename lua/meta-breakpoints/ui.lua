@@ -9,7 +9,7 @@ local function get_hooks()
   local curr_hooks = {}
   for _, bp in ipairs(breakpoints.get_breakpoints()) do
     local hook_name = bp.meta.hit_hook or nil
-    if hook_name and string.sub(hook_name, 0, 8) ~= 'INTERNAL' then
+    if hook_name and string.sub(hook_name, 0, 1) ~= '_' then
       curr_hooks[hook_name] = true
     end
   end
@@ -19,7 +19,7 @@ local function get_hooks()
     end
   end
   for hook_name, _ in pairs(hooks.get_all_hooks()) do
-    if string.sub(hook_name, 0, 8) ~= 'INTERNAL' then
+    if string.sub(hook_name, 0, 1) ~= '_' then
       curr_hooks[hook_name] = true
     end
   end

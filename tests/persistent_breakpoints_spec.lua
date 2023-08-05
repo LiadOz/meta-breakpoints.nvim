@@ -18,7 +18,7 @@ describe("test breakpoints persistence", function()
         persist_on_placement = false,
       },
       plugin_directory = directory
-    })
+  })
 
   before_each(function()
     buffer = vim.uri_to_bufnr(vim.uri_from_fname(file))
@@ -32,9 +32,12 @@ describe("test breakpoints persistence", function()
   after_each(function()
     bps.clear()
     clear_persistent_breakpoints()
-    vim.api.nvim_buf_delete(buffer, {force = true})
+    if vim.api.nvim_buf_is_valid(buffer) then
+      vim.api.nvim_buf_delete(buffer, {force = true})
+    end
 
     uv.fs_unlink(file)
+    bps.clear()
   end)
 
   local function save_breakpoints(bufnr)
@@ -43,7 +46,7 @@ describe("test breakpoints persistence", function()
       vim.api.nvim_cmd({cmd = "write"}, {})
     end)
     local co = coroutine.running()
-    bps.update_buf_breakpoints(bufnr, true, function()
+    bps.update_buf_breakpoints(bufnr, true, true, function()
       coroutine.resume(co)
     end)
     coroutine.yield()
@@ -56,6 +59,12 @@ describe("test breakpoints persistence", function()
     end, opts)
     coroutine.yield()
   end
+
+ -- this is a workaround for an issue where a setup in which load_breakpoints_on_setup was enabled in a previous configuration and
+ -- the autocmd has not finished executing loading breakpoints, which causes bad breakpoints to be loaded inside tests
+ -- so this causes the test to block until previous load_breakpoints have been called
+  load_breakpoints()
+
 
   local function get_breakpoints_for_buffer(bufnr)
     local result = {}

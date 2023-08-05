@@ -1,5 +1,4 @@
 local uv = vim.loop
-local persistence = require('meta-breakpoints.persistence')
 local utils = require('meta-breakpoints.utils')
 local plugin_dir = '/tmp/meta_breakpoints'
 local clear_persistent_breakpoints = require('tests.utils').clear_persistent_breakpoints

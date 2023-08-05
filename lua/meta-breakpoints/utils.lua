@@ -8,6 +8,9 @@ function M.get_breakpoints_file()
   return config.plugin_directory .. '/persistent_breakpoints.json'
 end
 
+---@param file_path string
+---@param bps PersistentBreakpointsTable
+---@param callback fun()
 local function save_breakpoints_to_file(file_path, bps, callback)
   uv.fs_open(file_path, 'w', 438, vim.schedule_wrap(function(err, fd)
     assert(not err, err)
@@ -49,13 +52,15 @@ function M.ensure_plugin_directory(callback)
   end)
 end
 
+---@param bps PersistentBreakpointsTable
+---@param callback fun()
 function M.save_breakpoints(bps, callback)
   M.ensure_plugin_directory(function()
     save_breakpoints_to_file(M.get_breakpoints_file(), bps, callback)
   end)
 end
 
----@param callback fun(breakpoints: table[])
+---@param callback fun(breakpoints: PersistentBreakpointsTable)
 function M.read_breakpoints(callback)
   local bp_file = M.get_breakpoints_file()
   M.ensure_plugin_directory(function()
