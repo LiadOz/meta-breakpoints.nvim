@@ -49,7 +49,7 @@ function M.update_buf_breakpoints(bufnr, update_file, override_changed, callback
         meta_opts.hit_hook = nil
       end
       if meta_opts.remove_hook and string.sub(meta_opts.remove_hook, 0, 1) == '_' then
-        meta_opts.remote_hook = nil
+        meta_opts.remove_hook = nil
       end
       table.insert(persistent_data,
         {
