@@ -312,7 +312,17 @@ function M.set_persistent_breakpoints(session, callback)
   end
   local num_requests = #unloaded_files
   for _, file_name in pairs(unloaded_files) do
-    local file_breakpoints = persistent_breakpoints[file_name]
+    local function filter(bp)
+      return bp.meta_opts.toggle_dap_breakpoint
+    end
+    local file_breakpoints = vim.tbl_filter(filter, persistent_breakpoints[file_name])
+    if #file_breakpoints == 0 then
+      num_requests = num_requests - 1
+      if num_requests == 0 and callback then
+        vim.schedule(function() callback(loaded_breakpoints) end)
+      end
+      goto continue
+    end
     table.insert(loaded_breakpoints, file_breakpoints)
     local payload = {
       source = {
@@ -320,8 +330,7 @@ function M.set_persistent_breakpoints(session, callback)
         name = vim.fn.fnamemodify(file_name, ':t')
       },
       sourceModified = false,
-      breakpoints = vim.tbl_map(
-        function(bp)
+      breakpoints = vim.tbl_map(function(bp)
           -- trim extra information like the state
           return {
             line = bp.lnum,
@@ -349,6 +358,7 @@ function M.set_persistent_breakpoints(session, callback)
         callback(loaded_breakpoints)
       end
     end)
+    ::continue::
   end
 end
 

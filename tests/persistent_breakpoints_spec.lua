@@ -227,6 +227,24 @@ describe("test breakpoints persistence", function()
     assert.are.same(placed_bps[1].meta, bps.get_breakpoints(buffer)[1].meta)
   end)
 
+  it('checks persistent breakpoints with toggle_dap_breakpoint=false', function()
+    bps.toggle_meta_breakpoint({}, {toggle_dap_breakpoint = false}, { bufnr = buffer, lnum = 1 })
+    save_breakpoints()
+
+    vim.api.nvim_buf_delete(buffer, {force = true})
+    buffer = vim.uri_to_bufnr(vim.uri_from_fname(file))
+
+    local session = {request = function(_, _, _, callback) vim.schedule(callback) end}
+    local co = coroutine.running()
+    local loaded_breakpoints = nil
+    bps.set_persistent_breakpoints(session, function(result)
+      loaded_breakpoints = result
+      coroutine.resume(co)
+    end)
+    coroutine.yield()
+    assert.are.same({}, loaded_breakpoints)
+  end)
+
   pending('checks closing then opening buffer keeps breakpoint, needs to setup different config')
 
 end)

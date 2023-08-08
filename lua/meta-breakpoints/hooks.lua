@@ -11,7 +11,7 @@ local next_hook_id = 0
 ---@param hook_function function
 ---@return number hook_id id that can be used to remove the function from this hook
 function M.register_to_hook(hook_name, hook_function)
-  log.fmt_trace('Registering function %s to hook %s', hook_function, hook_name)
+  log.fmt_trace('Registering function to hook %s', hook_name)
   if not hooks_mapping[hook_name] then
     hooks_mapping[hook_name] = {}
   end
