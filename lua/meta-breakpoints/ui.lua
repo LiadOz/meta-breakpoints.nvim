@@ -15,7 +15,9 @@ local function get_hooks()
   end
   for _, persistent_breakpoints in pairs(persistence.get_persistent_breakpoints()) do
     for _, pb in pairs(persistent_breakpoints) do
-      curr_hooks[pb.meta_opts.hit_hook] = true
+      if pb.meta_opts.hit_hook then
+        curr_hooks[pb.meta_opts.hit_hook] = true
+      end
     end
   end
   for hook_name, _ in pairs(hooks.get_all_hooks()) do
@@ -95,25 +97,28 @@ function M.toggle_hook_breakpoint(dap_opts, meta_opts, replace_old)
 end
 
 local function treesitter_highlight(lang, input)
-  local parser = vim.treesitter.get_string_parser(input, 'python')
+  local parser = vim.treesitter.get_string_parser(input, lang)
   local tree = parser:parse()[1]
   local query = vim.treesitter.query.get(lang, 'highlights')
   local highlights = {}
-  for id, node, _ in query:iter_captures(tree:root(), input) do
-    local _, cstart, _ , cend = node:range()
-    table.insert(highlights, { cstart, cend, "@" .. query.captures[id] })
+  if query then
+    for id, node, _ in query:iter_captures(tree:root(), input, 0, -1) do
+      local _, cstart, _ , cend = node:range()
+      table.insert(highlights, { cstart, cend, "@" .. query.captures[id] })
+    end
   end
   return highlights
 end
 
 function M.put_conditional_breakpoint(bp_opts, replace_old)
   bp_opts = bp_opts or {}
+  local lang = vim.bo.filetype
   if bp_opts.condition ~= nil then
     M.toggle_meta_breakpoint(bp_opts, replace_old)
     return
   end
   vim.ui.input({prompt = "Enter condition: ", highlight = function(input)
-    return treesitter_highlight(vim.bo.filetype, input)
+    return treesitter_highlight(lang, input)
   end}, function(result)
     if not result then
       return
