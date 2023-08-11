@@ -1,8 +1,8 @@
 local M = {}
 
-local log = require('meta-breakpoints.log')
+local log = require("meta-breakpoints.log")
 local last_sign_id = 0
-local sign_group = 'meta-breakpoints'
+local sign_group = "meta-breakpoints"
 
 ---@param sign_id number
 ---@param bufnr number
@@ -56,24 +56,18 @@ end
 ---@return number sign_id
 function M.place_sign(bufnr, lnum, sign_type, priority)
   priority = priority or 11
-  local sign_id = vim.fn.sign_place(
-    get_new_sign_id(),
-    sign_group,
-    sign_type,
-    bufnr,
-    { lnum = lnum, priority = 11 }
-  )
+  local sign_id = vim.fn.sign_place(get_new_sign_id(), sign_group, sign_type, bufnr, { lnum = lnum, priority = 11 })
   log.fmt_trace("sign placed bufnr:%s lnum:%s sign_id:%s", bufnr, lnum, sign_id)
   return sign_id
 end
 
 function M.remove_sign(bufnr, sign_id)
-  log.fmt_trace('removing sign_id:%s from bufnr:%s', sign_id, bufnr)
+  log.fmt_trace("removing sign_id:%s from bufnr:%s", sign_id, bufnr)
   vim.fn.sign_unplace(sign_group, { buffer = bufnr, id = sign_id })
 end
 
 function M.clear_signs()
-  log.trace('clearing all signs')
+  log.trace("clearing all signs")
   vim.fn.sign_unplace(sign_group)
 end
 

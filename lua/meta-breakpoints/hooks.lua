@@ -1,17 +1,16 @@
 local M = {}
 
-local log = require('meta-breakpoints.log')
+local log = require("meta-breakpoints.log")
 
 local hooks_mapping = {}
 local next_hook_id = 0
-
 
 --- Register a function to a hook
 ---@param hook_name string hook name to register to, hook names starting with _ are used for internal purposes
 ---@param hook_function function
 ---@return number hook_id id that can be used to remove the function from this hook
 function M.register_to_hook(hook_name, hook_function)
-  log.fmt_trace('Registering function to hook %s', hook_name)
+  log.fmt_trace("Registering function to hook %s", hook_name)
   if not hooks_mapping[hook_name] then
     hooks_mapping[hook_name] = {}
   end

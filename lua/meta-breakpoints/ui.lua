@@ -1,15 +1,14 @@
 local M = {}
-local NEW_HOOK_PROMPT = 'Create new hook: '
-local breakpoints = require('meta-breakpoints.breakpoint_base')
-local persistence = require('meta-breakpoints.persistence')
-local hooks = require('meta-breakpoints.hooks')
-
+local NEW_HOOK_PROMPT = "Create new hook: "
+local breakpoints = require("meta-breakpoints.breakpoint_base")
+local persistence = require("meta-breakpoints.persistence")
+local hooks = require("meta-breakpoints.hooks")
 
 local function get_hooks()
   local curr_hooks = {}
   for _, bp in ipairs(breakpoints.get_breakpoints()) do
     local hook_name = bp.meta.hit_hook or nil
-    if hook_name and string.sub(hook_name, 0, 1) ~= '_' then
+    if hook_name and string.sub(hook_name, 0, 1) ~= "_" then
       curr_hooks[hook_name] = true
     end
   end
@@ -21,7 +20,7 @@ local function get_hooks()
     end
   end
   for hook_name, _ in pairs(hooks.get_all_hooks()) do
-    if string.sub(hook_name, 0, 1) ~= '_' then
+    if string.sub(hook_name, 0, 1) ~= "_" then
       curr_hooks[hook_name] = true
     end
   end
@@ -32,14 +31,13 @@ local function get_hooks()
   return result
 end
 
-
 local function prompt_hit_hook_selection(on_selection)
   vim.ui.select(get_hooks(), {
-    prompt = 'Select hook name:',
-    kind = 'hook_name'
+    prompt = "Select hook name:",
+    kind = "hook_name",
   }, function(choice)
     if choice == NEW_HOOK_PROMPT then
-      vim.ui.input({ prompt = 'Enter new hook name: ' }, function(input)
+      vim.ui.input({ prompt = "Enter new hook name: " }, function(input)
         on_selection(input)
       end)
     else
@@ -47,7 +45,6 @@ local function prompt_hit_hook_selection(on_selection)
     end
   end)
 end
-
 
 local function should_remove(replace_old)
   if not replace_old and breakpoints.get_breakpoint_at_cursor() then
@@ -83,7 +80,7 @@ function M.toggle_hook_breakpoint(dap_opts, meta_opts, replace_old)
   meta_opts = meta_opts or {}
   if should_remove(replace_old) or meta_opts.trigger_hook then
     if meta_opts.trigger_hook == nil then
-      meta_opts.trigger_hook = ''
+      meta_opts.trigger_hook = ""
     end
     breakpoints.toggle_hook_breakpoint(dap_opts, meta_opts, replace_old)
     return
@@ -99,11 +96,11 @@ end
 local function treesitter_highlight(lang, input)
   local parser = vim.treesitter.get_string_parser(input, lang)
   local tree = parser:parse()[1]
-  local query = vim.treesitter.query.get(lang, 'highlights')
+  local query = vim.treesitter.query.get(lang, "highlights")
   local highlights = {}
   if query then
     for id, node, _ in query:iter_captures(tree:root(), input, 0, -1) do
-      local _, cstart, _ , cend = node:range()
+      local _, cstart, _, cend = node:range()
       table.insert(highlights, { cstart, cend, "@" .. query.captures[id] })
     end
   end
@@ -117,9 +114,12 @@ function M.put_conditional_breakpoint(bp_opts, replace_old)
     M.toggle_meta_breakpoint(bp_opts, replace_old)
     return
   end
-  vim.ui.input({prompt = "Enter condition: ", highlight = function(input)
-    return treesitter_highlight(lang, input)
-  end}, function(result)
+  vim.ui.input({
+    prompt = "Enter condition: ",
+    highlight = function(input)
+      return treesitter_highlight(lang, input)
+    end,
+  }, function(result)
     if not result then
       return
     end

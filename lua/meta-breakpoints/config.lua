@@ -1,7 +1,7 @@
 local M = {
   signs = {
-    meta_breakpoint_sign = 'M',
-    hook_breakpoint_sign = 'H',
+    meta_breakpoint_sign = "M",
+    hook_breakpoint_sign = "H",
   },
   persistent_breakpoints = {
     enabled = true,
@@ -11,13 +11,13 @@ local M = {
     persistent_by_default = false,
     persist_on_placement = true, -- useful in tests
   },
-  plugin_directory = vim.fn.stdpath('data') .. '/meta_breakpoints'
+  plugin_directory = vim.fn.stdpath("data") .. "/meta_breakpoints",
 }
 
 local function update_config(config, opts)
   for key, value in pairs(opts) do
     if type(value) == "table" and type(config[key]) == "table" then
-      update_config(config[key], value)       -- Recursive call for nested tables
+      update_config(config[key], value) -- Recursive call for nested tables
     else
       config[key] = value
     end
