@@ -67,6 +67,12 @@ describe("test persistent data", function()
     })
 
     local co = coroutine.running()
+    local data = {}
+    utils.save_breakpoints(data, function()
+      coroutine.resume(co)
+    end)
+    coroutine.yield()
+
     uv.fs_unlink(utils.get_breakpoints_file())
     local status = uv.fs_rmdir(test_dir)
     assert.truthy(status)
