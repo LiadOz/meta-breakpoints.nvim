@@ -19,16 +19,15 @@ local function save_breakpoints_to_file(file_path, bps, callback)
     vim.schedule_wrap(function(err, fd)
       assert(not err, err)
       local json = vim.fn.json_encode(bps)
-      uv.fs_write(fd, json, function(err, _)
-        assert(not err, err)
+      uv.fs_write(fd, json, function(err1, _)
+        assert(not err1, err1)
         uv.fs_close(
           fd,
-          vim.schedule_wrap(function(err, _)
-            assert(not err, err)
+          vim.schedule_wrap(function(err2, _)
+            assert(not err2, err2)
             log.fmt_trace("written to file %s", json)
             if callback then
               callback()
-            else
             end
           end)
         )
@@ -46,16 +45,16 @@ function M.ensure_plugin_directory(callback)
       uv.fs_mkdir(
         plugin_dir,
         448,
-        vim.schedule_wrap(function(err, _)
-          assert(not err, err)
+        vim.schedule_wrap(function(err1, _)
+          assert(not err1, err1)
           save_breakpoints_to_file(bp_file, {}, callback)
         end)
       )
     else
       uv.fs_stat(
         bp_file,
-        vim.schedule_wrap(function(err, _)
-          if err ~= nil then
+        vim.schedule_wrap(function(err1, _)
+          if err1 ~= nil then
             log.fmt_trace("Breakpoint file %s not found", bp_file)
             save_breakpoints_to_file(bp_file, {}, callback)
           else
@@ -81,19 +80,18 @@ function M.read_breakpoints(callback)
   M.ensure_plugin_directory(function()
     uv.fs_open(bp_file, "r", 438, function(err, fd)
       assert(not err, err)
-      uv.fs_stat(bp_file, function(err, stat)
-        assert(not err, err)
-        uv.fs_read(fd, stat.size, 0, function(err, data)
-          assert(not err, err)
+      uv.fs_stat(bp_file, function(err1, stat)
+        assert(not err1, err1)
+        uv.fs_read(fd, stat.size, 0, function(err2, data)
+          assert(not err2, err2)
           log.fmt_trace("read content %s", data)
           uv.fs_close(
             fd,
-            vim.schedule_wrap(function(err, _)
-              assert(not err, err)
+            vim.schedule_wrap(function(err3, _)
+              assert(not err3, err3)
               local ok, result = pcall(vim.fn.json_decode, data)
               if not ok then
                 log.fmt_warn("failed to decode data")
-              else
               end
               if not ok or not result then
                 result = {}

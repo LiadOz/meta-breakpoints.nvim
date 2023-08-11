@@ -209,7 +209,6 @@ local count = 0
 ---@param callback function|nil
 ---@param opts {all_buffers: boolean, bufnr: number}|nil
 function M.load_persistent_breakpoints(callback, opts)
-  local my_count = count
   count = count + 1
   opts = opts or { all_buffers = true }
   local target_bufnr = opts.bufnr == 0 and vim.fn.bufnr() or opts.bufnr
@@ -292,7 +291,7 @@ function M.toggle_hook_breakpoint(dap_opts, meta_opts, placement_opts)
   hook_breakpoint_count = hook_breakpoint_count + 1
 end
 
-local function set_session_file_breakpoints(session, file_name, breakpoints, callback)
+local function set_session_file_breakpoints(session, file_name, file_breakpoints, callback)
   local payload = {
     source = {
       path = file_name,
@@ -307,10 +306,10 @@ local function set_session_file_breakpoints(session, file_name, breakpoints, cal
         hitCondition = bp.dap_opts.hit_condition,
         logMessage = bp.dap_opts.log_message,
       }
-    end, breakpoints),
+    end, file_breakpoints),
     lines = vim.tbl_map(function(x)
       return x.lnum
-    end, breakpoints),
+    end, file_breakpoints),
   }
   session:request("setBreakpoints", payload, function(err, resp)
     if err then
