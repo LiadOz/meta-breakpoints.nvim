@@ -1,6 +1,6 @@
 local M = {}
 
-local persistence = require('meta-breakpoints.persistence')
+local persistence = require("meta-breakpoints.persistence")
 
 function M.clear_persistent_breakpoints()
   local co = coroutine.running()

@@ -6,7 +6,7 @@ local M = {}
 ---@type PersistentBreakpointsTable
 local persistent_breakpoints = {}
 
-local utils = require('meta-breakpoints.utils')
+local utils = require("meta-breakpoints.utils")
 
 local function save_file_breakpoints(file_name, breakpoints, callback)
   utils.read_breakpoints(function(files_data)
@@ -31,7 +31,7 @@ function M.read_persistent_breakpoints(callback)
   end)
 end
 
-local log = require('meta-breakpoints.log')
+local log = require("meta-breakpoints.log")
 ---@param file_name string
 ---@param breakpoints_data PersistentBreakpointFileData[]|nil
 ---@param update_file boolean
