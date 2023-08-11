@@ -5,7 +5,7 @@ if not ok then
   -- logger will only be available when plenary is installed
   logger = setmetatable({}, {
     __index = function()
-      return function(...) end
+      return function() end
     end,
   })
 else

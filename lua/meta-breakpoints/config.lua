@@ -29,11 +29,11 @@ local function validate_opts(opts)
   if pb_config then
     if pb_config.enabled == false then
       local err_msg = "Persistent breakpoints not enabled"
-      assert(not pb_config.load_breakpoints_on_setup == true, err_msg)
-      assert(not pb_config.load_breakpoints_on_buf_enter == true, err_msg)
-      assert(not pb_config.save_breakpoints_on_buf_write == true, err_msg)
-      assert(not pb_config.persistent_by_default == true, err_msg)
-      assert(not pb_config.persist_on_placement == true, err_msg)
+      assert(pb_config.load_breakpoints_on_setup ~= true, err_msg)
+      assert(pb_config.load_breakpoints_on_buf_enter ~= true, err_msg)
+      assert(pb_config.save_breakpoints_on_buf_write ~= true, err_msg)
+      assert(pb_config.persistent_by_default ~= true, err_msg)
+      assert(pb_config.persist_on_placement ~= true, err_msg)
     end
   end
 end
