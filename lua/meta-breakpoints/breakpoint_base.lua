@@ -1,16 +1,15 @@
 local M = {}
 
----@alias PlacementOpts {bufnr: number, lnum: number, replace: boolean}
----@alias DapOpts {condition: string, log_message: string, hit_condition: string}
----@alias MetaOpts {type: string, hit_hook: string, trigger_hook: string, remove_hook: string, persistent: boolean, toggle_dap_breakpoint: boolean}
+---@alias DapPlacementOpts {bufnr: number, lnum: number, replace: boolean}
 ---@alias BreakpointData {bufnr: number, sign_id: number, dap_opts: DapOpts, meta: MetaOpts}
 
 ---@type table<number, BreakpointData>
 local bp_by_id = {}
 local hook_breakpoint_count = 0
 local signs = require("meta-breakpoints.signs")
-local dap = require("dap")
-local breakpoints = require("dap.breakpoints")
+local dap_utils = require('meta-breakpoints.nvim_dap_utils')
+local dap = require('dap')
+local breakpoints = require('dap.breakpoints')
 local hooks = require("meta-breakpoints.hooks")
 local persistence = require("meta-breakpoints.persistence")
 local config = require("meta-breakpoints.config")
@@ -86,8 +85,8 @@ local function get_breakpoint_type_sign(breakpoint_type)
 end
 
 --- Create a breakpoint location
----@param opts PlacementOpts|nil
----@return PlacementOpts
+---@param opts DapPlacementOpts|nil
+---@return DapPlacementOpts
 local function setup_placement_opts(opts)
   opts = opts or {}
   local bufnr = opts.bufnr
@@ -105,20 +104,6 @@ end
 function M.get_breakpoint_at_cursor()
   local placement_opts = setup_placement_opts()
   return M.get_breakpoint_at_location(placement_opts.bufnr, placement_opts.lnum)
-end
-
---- Toggle breakpoint using nvim-dap
----@param dap_opts DapOpts|nil
----@param placement_opts PlacementOpts
-local function toggle_dap_breakpoint(dap_opts, placement_opts)
-  local opts = vim.deepcopy(dap_opts or {})
-  opts.replace = placement_opts.replace
-  breakpoints.toggle(opts, placement_opts.bufnr, placement_opts.lnum)
-  local session = dap.session()
-  if session then
-    local bps = breakpoints.get(placement_opts.bufnr)
-    session:set_breakpoints(bps)
-  end
 end
 
 ---@param bufnr number
@@ -147,7 +132,7 @@ end
 --- Place a meta breakpoint
 ---@param dap_opts DapOpts|nil
 ---@param meta_opts MetaOpts|nil
----@param placement_opts PlacementOpts|nil
+---@param placement_opts DapPlacementOpts|nil
 ---@return BreakpointData|nil breakpoint_data
 function M.toggle_meta_breakpoint(dap_opts, meta_opts, placement_opts)
   meta_opts = meta_opts or {}
@@ -168,12 +153,12 @@ function M.toggle_meta_breakpoint(dap_opts, meta_opts, placement_opts)
     meta_opts.toggle_dap_breakpoint = true
   end
   if meta_opts.toggle_dap_breakpoint then
-    toggle_dap_breakpoint(dap_opts, placement_opts)
+    dap_utils.toggle_dap_breakpoint(dap_opts, placement_opts)
   end
 
   if remove_meta_breakpoint(bufnr, lnum) and not placement_opts.replace then
     -- no need to replace removed breakpoint
-    breakpoints.remove(bufnr, lnum)
+    dap_utils.remove_breakpoint(bufnr, lnum)
     return nil
   end
 
@@ -250,7 +235,7 @@ end
 --- Place a hook breakpoint
 ---@param dap_opts DapOpts|nil
 ---@param meta_opts MetaOpts
----@param placement_opts PlacementOpts|nil
+---@param placement_opts DapPlacementOpts|nil
 function M.toggle_hook_breakpoint(dap_opts, meta_opts, placement_opts)
   placement_opts = setup_placement_opts(placement_opts)
   meta_opts = meta_opts or {}
@@ -269,13 +254,13 @@ function M.toggle_hook_breakpoint(dap_opts, meta_opts, placement_opts)
   end
 
   local function place_breakpoint()
-    toggle_dap_breakpoint(dap_opts, { bufnr = bp.bufnr, lnum = get_breakpoint_lnum(bp) })
+    dap_utils.toggle_dap_breakpoint(dap_opts, { bufnr = bp.bufnr, lnum = get_breakpoint_lnum(bp) })
     if dap.session() then
       dap.continue()
     end
   end
   local function remove_breakpoint()
-    toggle_dap_breakpoint({}, { bufnr = bp.bufnr, lnum = get_breakpoint_lnum(bp) })
+    dap_utils.toggle_dap_breakpoint({}, { bufnr = bp.bufnr, lnum = get_breakpoint_lnum(bp) })
   end
 
   local trigger_id = hooks.register_to_hook(trigger_hook, place_breakpoint)

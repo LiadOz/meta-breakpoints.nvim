@@ -1,21 +1,8 @@
 local bps = require("meta-breakpoints.breakpoint_base")
 local signs = require("meta-breakpoints.signs")
 local hooks = require("meta-breakpoints.hooks")
-local dap_bps = require("dap.breakpoints")
+local get_dap_breakpoints = require('tests.utils').get_dap_breakpoints
 
-local function get_dap_breakpoints()
-  local breakpoints = dap_bps.get()
-  local result = {}
-  for bufnr, buf_bps in pairs(breakpoints) do
-    for _, bp_data in ipairs(buf_bps) do
-      table.insert(result, { bufnr, bp_data.line })
-    end
-  end
-  table.sort(result, function(a, b)
-    return a[1] < b[1]
-  end)
-  return result
-end
 local spy = require("luassert.spy")
 
 describe("test breakpoints", function()
@@ -61,7 +48,7 @@ describe("test breakpoints", function()
   it("checks dap options are saved", function()
     local dap_opts = { condition = "a", hit_condition = "b", log_message = "c" }
     bps.toggle_meta_breakpoint(dap_opts, {}, { bufnr = buffer, lnum = 1 })
-    local dap_breakpoint = dap_bps.get()[buffer][1]
+    local dap_breakpoint = require('dap.breakpoints').get()[buffer][1]
 
     local expected_dap_opts = { condition = "a", hitCondition = "b", logMessage = "c" }
     for key, value in pairs(expected_dap_opts) do

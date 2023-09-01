@@ -53,11 +53,12 @@ end
 ---@param lnum number
 ---@param sign_type string
 ---@param priority number|nil
+---@param sign_id number|nil
 ---@return number sign_id
-function M.place_sign(bufnr, lnum, sign_type, priority)
+function M.place_sign(bufnr, lnum, sign_type, priority, sign_id)
+  sign_id = sign_id or get_new_sign_id()
   priority = priority or 11
-  local sign_id =
-    vim.fn.sign_place(get_new_sign_id(), sign_group, sign_type, bufnr, { lnum = lnum, priority = priority })
+  sign_id = vim.fn.sign_place(sign_id, sign_group, sign_type, bufnr, { lnum = lnum, priority = priority })
   log.fmt_trace("sign placed bufnr:%s lnum:%s sign_id:%s", bufnr, lnum, sign_id)
   return sign_id
 end
