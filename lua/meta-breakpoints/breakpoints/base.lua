@@ -1,6 +1,7 @@
 local M = {}
 local signs = require("meta-breakpoints.signs")
 local dap_utils = require("meta-breakpoints.nvim_dap_utils")
+local hooks = require('meta-breakpoints.hooks')
 
 ---@type table<string, Breakpoint>
 local registered_breakpoints = {}
@@ -29,9 +30,9 @@ end
 ---@field bufnr number|nil
 ---@field enabled boolean
 ---@field dap_opts DapOpts
+---@field sign_id number|nil
 ---@field protected active boolean
 ---@field protected lnum number
----@field private sign_id number|nil
 local Breakpoint = {}
 
 ---@param file_name string
@@ -79,10 +80,26 @@ function Breakpoint:load(bufnr)
   return self.sign_id
 end
 
-function Breakpoint:get_lnum()
-  if self.sign_id then
-    return signs.get_sign_id_data(self.sign_id, self.bufnr).lnum
+function Breakpoint:is_loaded()
+  if self.bufnr then
+    if vim.fn.bufloaded(self.bufnr) == 0 then
+      self.bufnr = nil
+      self.sign_id = nil
+      return false
+    end
+    return true
   end
+  return false
+end
+
+function Breakpoint:update_lnum()
+  if self:is_loaded() then
+    self.lnum = signs.get_sign_id_data(self.sign_id, self.bufnr).lnum
+  end
+end
+
+function Breakpoint:get_lnum()
+  self:update_lnum()
   return self.lnum
 end
 
@@ -105,6 +122,13 @@ end
 function Breakpoint:update_sign(sign_type)
   assert(self.sign_id, "Can't update a breakpoint sign when sign doesn't exist")
   signs.place_sign(self.bufnr, self.lnum, sign_type, nil, self.sign_id)
+end
+
+function Breakpoint:remove()
+  self:disable()
+  if self:is_loaded() then
+    signs.remove_sign(self.bufnr, self.sign_id)
+  end
 end
 
 function Breakpoint:is_active()
@@ -176,6 +200,16 @@ function MetaBreakpoint:enable()
   end
   self.enabled = true
   self.active = toggle
+end
+
+function MetaBreakpoint:remove()
+  local remove_hook = self.meta_opts.remove_hook
+  if remove_hook then
+    for _, func in pairs(hooks.get_hooks_mapping(remove_hook)) do
+      func()
+    end
+  end
+  Breakpoint.remove(self)
 end
 
 function MetaBreakpoint:get_persistent_data()
