@@ -65,7 +65,7 @@ function M.toggle_meta_breakpoint(persistent, replace_old, breakpoint_opts, prom
   end
   -- check if breakpoints exist here if it does you want to only remove it unless replace_old is used
   if should_remove() or (meta_opts and meta_opts.hit_hook) or prompt_hook == false then
-    breakpoints.toggle_meta_breakpoint({replace = replace_old, persistent = persistent}, breakpoint_opts)
+    breakpoints.toggle_meta_breakpoint({ replace = replace_old, persistent = persistent }, breakpoint_opts)
     return
   end
   prompt_hit_hook_selection(function(selection)
@@ -77,7 +77,7 @@ function M.toggle_meta_breakpoint(persistent, replace_old, breakpoint_opts, prom
     else
       meta_opts.hit_hook = selection
     end
-    breakpoints.toggle_meta_breakpoint({replace = replace_old, persistent = persistent}, breakpoint_opts)
+    breakpoints.toggle_meta_breakpoint({ replace = replace_old, persistent = persistent }, breakpoint_opts)
   end)
 end
 
@@ -89,13 +89,13 @@ function M.toggle_hook_breakpoint(persistent, replace_old, breakpoint_opts)
     if meta_opts.trigger_hook == nil then
       meta_opts.trigger_hook = ""
     end
-    breakpoints.toggle_hook_breakpoint({replace = replace_old, persistent = persistent}, breakpoint_opts)
+    breakpoints.toggle_hook_breakpoint({ replace = replace_old, persistent = persistent }, breakpoint_opts)
     return
   end
   prompt_hit_hook_selection(function(selection)
     if selection then
       meta_opts.trigger_hook = selection
-      breakpoints.toggle_hook_breakpoint({replace = replace_old, persistent = persistent}, breakpoint_opts)
+      breakpoints.toggle_hook_breakpoint({ replace = replace_old, persistent = persistent }, breakpoint_opts)
     end
   end)
 end

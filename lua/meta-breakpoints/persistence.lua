@@ -7,7 +7,7 @@ local M = {}
 local persistent_breakpoints = {}
 
 local utils = require("meta-breakpoints.utils")
-local breakpoint_factory = require('meta-breakpoints.breakpoints').breakpoint_factory
+local breakpoint_factory = require("meta-breakpoints.breakpoints").breakpoint_factory
 
 ---@param file_name string
 ---@param breakpoints Breakpoint[]|nil
@@ -38,7 +38,7 @@ function M.load_persistent_breakpoints(callback)
       if #breakpoints_data > 0 then
         local breakpoints = {}
         for _, breakpoint_data in pairs(breakpoints_data) do
-          local opts = {file_name = file_name, lnum = breakpoint_data.lnum, opts = breakpoint_data.opts}
+          local opts = { file_name = file_name, lnum = breakpoint_data.lnum, opts = breakpoint_data.opts }
           table.insert(breakpoints, breakpoint_factory(breakpoint_data.type, opts))
         end
         persistent_breakpoints[file_name] = breakpoints

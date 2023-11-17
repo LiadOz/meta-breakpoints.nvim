@@ -1,7 +1,7 @@
 local M = {}
 local signs = require("meta-breakpoints.signs")
 local dap_utils = require("meta-breakpoints.nvim_dap_utils")
-local hooks = require('meta-breakpoints.hooks')
+local hooks = require("meta-breakpoints.hooks")
 
 ---@type table<string, Breakpoint>
 local registered_breakpoints = {}
@@ -45,28 +45,28 @@ function Breakpoint.new(file_name, lnum, opts)
     opts.enabled = true
   end
   local dap_opts = opts.dap_opts or {}
-  local data = {file_name = file_name, lnum = lnum, enabled = opts.enabled, dap_opts = dap_opts}
+  local data = { file_name = file_name, lnum = lnum, enabled = opts.enabled, dap_opts = dap_opts }
   ---@type Breakpoint
-  local self = setmetatable(data, {__index = Breakpoint})
+  local self = setmetatable(data, { __index = Breakpoint })
   self.active = true
   return self
 end
 
 function Breakpoint.get_default_sign()
-  return 'Breakpoint'
+  return "Breakpoint"
 end
 
 function Breakpoint.get_type()
-  return 'breakpoint'
+  return "breakpoint"
 end
 
 function Breakpoint:place_dap_breakpoint(bufnr)
   assert(self.enabled, "Can't place dap breakpoint when breakpoint is not enabled")
-  dap_utils.toggle_dap_breakpoint(self.dap_opts, {bufnr = bufnr, lnum = self:get_lnum(), replace = true})
+  dap_utils.toggle_dap_breakpoint(self.dap_opts, { bufnr = bufnr, lnum = self:get_lnum(), replace = true })
 end
 
 function Breakpoint:unplace_dap_breakpoint()
-    dap_utils.remove_breakpoint(self.bufnr, self:get_lnum())
+  dap_utils.remove_breakpoint(self.bufnr, self:get_lnum())
 end
 
 --- Load a breakpoint onto a buffer
@@ -107,7 +107,7 @@ function Breakpoint:enable()
   self.enabled = true
   self.active = true
   if self.bufnr then
-    dap_utils.toggle_dap_breakpoint(self.dap_opts, {bufnr = self.bufnr, lnum = self:get_lnum(), replace = true})
+    dap_utils.toggle_dap_breakpoint(self.dap_opts, { bufnr = self.bufnr, lnum = self:get_lnum(), replace = true })
   end
 end
 
@@ -136,21 +136,25 @@ function Breakpoint:is_active()
 end
 
 function Breakpoint:get_persistent_data()
-  return {file_name = self.file_name, lnum = self:get_lnum(), opts = {enabled = self.enabled, dap_opts = self.dap_opts}}
+  return {
+    file_name = self.file_name,
+    lnum = self:get_lnum(),
+    opts = { enabled = self.enabled, dap_opts = self.dap_opts },
+  }
 end
 
 M.Breakpoint = Breakpoint
-M.register_breakpoint_type(Breakpoint, {text = "B"})
+M.register_breakpoint_type(Breakpoint, { text = "B" })
 
 ---@class MetaBreakpoint : Breakpoint
 ---@field meta_opts MetaOpts
-local MetaBreakpoint = setmetatable({}, {__index = Breakpoint})
+local MetaBreakpoint = setmetatable({}, { __index = Breakpoint })
 
 ---@return MetaBreakpoint
 function MetaBreakpoint.new(file_name, lnum, opts)
   opts = opts or {}
   local instance = Breakpoint.new(file_name, lnum, opts)
-  local self = setmetatable(instance, {__index = MetaBreakpoint})
+  local self = setmetatable(instance, { __index = MetaBreakpoint })
   self.meta_opts = opts.meta_opts or {}
   if self.meta_opts.starts_active == nil then
     self.meta_opts.starts_active = true
@@ -160,11 +164,11 @@ function MetaBreakpoint.new(file_name, lnum, opts)
 end
 
 function MetaBreakpoint.get_default_sign()
-  return 'MetaBreakpoint'
+  return "MetaBreakpoint"
 end
 
 function MetaBreakpoint.get_type()
-  return 'meta_breakpoint'
+  return "meta_breakpoint"
 end
 
 ---@param bufnr number
@@ -215,7 +219,7 @@ end
 function MetaBreakpoint:get_persistent_data()
   local data = Breakpoint.get_persistent_data(self)
   local meta_opts = vim.deepcopy(self.meta_opts)
-  local nullify_hooks = {'hit_hook', 'remove_hook', 'trigger_hook'}
+  local nullify_hooks = { "hit_hook", "remove_hook", "trigger_hook" }
   for _, hook in pairs(nullify_hooks) do
     local value = meta_opts[hook]
     if value and string.sub(value, 0, 1) == "_" then
@@ -227,6 +231,6 @@ function MetaBreakpoint:get_persistent_data()
 end
 
 M.MetaBreakpoint = MetaBreakpoint
-M.register_breakpoint_type(MetaBreakpoint, {text = 'M'})
+M.register_breakpoint_type(MetaBreakpoint, { text = "M" })
 
 return M

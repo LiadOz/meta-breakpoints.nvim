@@ -8,16 +8,15 @@ local bp_by_sign_id = {}
 ---@type table<MetaBreakpoint, boolean>
 local persistent_bps = {}
 ---@type table<MetaBreakpoint, boolean>
-local unloaded_breakpoints = {}
 local signs = require("meta-breakpoints.signs")
-local dap = require('dap')
-local breakpoints = require('dap.breakpoints')
+local dap = require("dap")
+local breakpoints = require("dap.breakpoints")
 local hooks = require("meta-breakpoints.hooks")
 local persistence = require("meta-breakpoints.persistence")
 local config = require("meta-breakpoints.config")
 local log = require("meta-breakpoints.log")
-local dap_utils = require('meta-breakpoints.nvim_dap_utils')
-local breakpoint_factory = require('meta-breakpoints.breakpoints').breakpoint_factory
+local dap_utils = require("meta-breakpoints.nvim_dap_utils")
+local breakpoint_factory = require("meta-breakpoints.breakpoints").breakpoint_factory
 
 ---@return MetaBreakpoint[]
 function M.get_breakpoints(bufnr)
@@ -102,7 +101,6 @@ local function remove_meta_breakpoint(bufnr, lnum)
   return true
 end
 
-
 ---@param bp MetaBreakpoint
 ---@param persistent boolean
 local function add_breakpoint_to_collections(bp, persistent)
@@ -117,7 +115,7 @@ end
 ---@param opts {dap_opts: DapOpts, meta_opts: MetaOpts}|nil
 ---@return MetaBreakpoint|nil breakpoint_data
 function M.toggle_breakpoint(breakpoint_type, placement_opts, opts)
-  breakpoint_type = breakpoint_type or 'meta_breakpoint'
+  breakpoint_type = breakpoint_type or "meta_breakpoint"
   placement_opts = setup_placement_opts(placement_opts)
   local bufnr = placement_opts.bufnr
   local lnum = placement_opts.lnum
@@ -129,7 +127,7 @@ function M.toggle_breakpoint(breakpoint_type, placement_opts, opts)
   end
 
   local file_name = vim.uri_to_fname(vim.uri_from_bufnr(bufnr))
-  local bp = breakpoint_factory(breakpoint_type, {file_name = file_name, lnum = lnum, opts = opts}) --[[@as MetaBreakpoint]]
+  local bp = breakpoint_factory(breakpoint_type, { file_name = file_name, lnum = lnum, opts = opts }) --[[@as MetaBreakpoint]]
   bp:load(bufnr)
   add_breakpoint_to_collections(bp, placement_opts.persistent)
   if placement_opts.persistent then
@@ -142,14 +140,14 @@ end
 ---@param opts {dap_opts: DapOpts, meta_opts: MetaOpts}|nil
 ---@return MetaBreakpoint|nil breakpoint_data
 function M.toggle_meta_breakpoint(placement_opts, opts)
-  M.toggle_breakpoint('meta_breakpoint', placement_opts, opts)
+  M.toggle_breakpoint("meta_breakpoint", placement_opts, opts)
 end
 
 ---@param placement_opts PlacementOpts|nil
 ---@param opts {dap_opts: DapOpts, meta_opts: MetaOpts}|nil
 ---@return MetaBreakpoint|nil breakpoint_data
 function M.toggle_hook_breakpoint(placement_opts, opts)
-  M.toggle_breakpoint('hook_breakpoint', placement_opts, opts)
+  M.toggle_breakpoint("hook_breakpoint", placement_opts, opts)
 end
 
 function M.load_persistent_breakpoints(callback)
@@ -221,7 +219,7 @@ function M.set_persistent_breakpoints(session, callback)
   local num_requests = 0
   for file_name, bps in pairs(persistent_breakpoints) do
     local current_file_breakpoints = vim.tbl_filter(function(bp)
-      if not bp:is_active() or bp:is_loaded()then
+      if not bp:is_active() or bp:is_loaded() then
         return false
       end
       return true
@@ -233,7 +231,9 @@ function M.set_persistent_breakpoints(session, callback)
   end
   local loaded_breakpoints = {}
   if num_requests == 0 then
-    vim.schedule(function() callback(loaded_breakpoints) end)
+    vim.schedule(function()
+      callback(loaded_breakpoints)
+    end)
   end
   for file_name, bps in pairs(file_breakpoints) do
     set_session_file_breakpoints(session, file_name, bps, function()
@@ -293,7 +293,7 @@ end
 dap.listeners.after.stackTrace["meta-breakpoints.trigger_hooks"] = function(session)
   local stop_sign = dap_utils.get_dap_stopped_sign(session)
   if stop_sign == nil then
-    log.fmt_trace('no stop sign found, not triggering hooks')
+    log.fmt_trace("no stop sign found, not triggering hooks")
     return
   end
   local bufnr = stop_sign.bufnr

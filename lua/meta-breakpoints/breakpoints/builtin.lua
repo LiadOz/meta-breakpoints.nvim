@@ -1,12 +1,11 @@
 local M = {}
 
-local base = require('meta-breakpoints.breakpoints.base')
+local base = require("meta-breakpoints.breakpoints.base")
 local MetaBreakpoint = base.MetaBreakpoint
-local hooks = require('meta-breakpoints.hooks')
-
+local hooks = require("meta-breakpoints.hooks")
 
 ---@class HookBreakpoint : MetaBreakpoint
-local HookBreakpoint = setmetatable({}, {__index = MetaBreakpoint})
+local HookBreakpoint = setmetatable({}, { __index = MetaBreakpoint })
 
 local hook_breakpoint_count = 0
 function HookBreakpoint.new(file_name, lnum, opts)
@@ -17,7 +16,7 @@ function HookBreakpoint.new(file_name, lnum, opts)
   meta_opts.starts_active = false
 
   local instance = MetaBreakpoint.new(file_name, lnum, opts)
-  local self = setmetatable(instance, {__index = HookBreakpoint})
+  local self = setmetatable(instance, { __index = HookBreakpoint })
 
   self.meta_opts.hit_hook = self.meta_opts.hit_hook or string.format("_hit-%s", hook_breakpoint_count)
   self.meta_opts.remove_hook = self.meta_opts.remove_hook or string.format("_remove-%s", hook_breakpoint_count)
@@ -44,13 +43,13 @@ function HookBreakpoint.new(file_name, lnum, opts)
 end
 
 function HookBreakpoint.get_default_sign()
-  return 'HookBreakpoint'
+  return "HookBreakpoint"
 end
 
 function HookBreakpoint.get_type()
-  return 'hook_breakpoint'
+  return "hook_breakpoint"
 end
 M.HookBreakpoint = HookBreakpoint
-base.register_breakpoint_type(HookBreakpoint, {text = "H"})
+base.register_breakpoint_type(HookBreakpoint, { text = "H" })
 
 return M

@@ -1,11 +1,11 @@
-local get_dap_breakpoints = require('tests.utils').get_dap_breakpoints
-local base = require('meta-breakpoints.breakpoints.base')
-local builtin = require('meta-breakpoints.breakpoints.builtin')
+local get_dap_breakpoints = require("tests.utils").get_dap_breakpoints
+local base = require("meta-breakpoints.breakpoints.base")
+local builtin = require("meta-breakpoints.breakpoints.builtin")
 local Breakpoint = base.Breakpoint
 local MetaBreakpoint = base.MetaBreakpoint
 local HookBreakpoint = builtin.HookBreakpoint
-local breakpoint_factory = require('meta-breakpoints.breakpoints').breakpoint_factory
-local hooks = require('meta-breakpoints.hooks')
+local breakpoint_factory = require("meta-breakpoints.breakpoints").breakpoint_factory
+local hooks = require("meta-breakpoints.hooks")
 
 ---@param bp Breakpoint
 local function create_from_breakpoint(bp)
@@ -21,10 +21,10 @@ end
 
 describe("test breakpoint classes", function()
   local buffer = vim.api.nvim_create_buf(true, false)
-  vim.api.nvim_buf_set_lines(buffer, 0, -1, false, {"", "", "", "", ""})
+  vim.api.nvim_buf_set_lines(buffer, 0, -1, false, { "", "", "", "", "" })
 
   it("checks loading enabled breakpoint", function()
-    local bp = Breakpoint.new('f1', 1, {enabled = true})
+    local bp = Breakpoint.new("f1", 1, { enabled = true })
     assert.equals(0, #get_dap_breakpoints())
     bp:load(buffer)
     assert.equals(1, #get_dap_breakpoints())
@@ -33,7 +33,7 @@ describe("test breakpoint classes", function()
   end)
 
   it("checks loading disabled breakpoint", function()
-    local bp = Breakpoint.new('f1', 1, {enabled = false})
+    local bp = Breakpoint.new("f1", 1, { enabled = false })
     assert.equals(0, #get_dap_breakpoints())
     bp:load(buffer)
     assert.equals(0, #get_dap_breakpoints())
@@ -44,12 +44,16 @@ describe("test breakpoint classes", function()
   end)
 
   it("checks base breakpoint factory", function()
-    local bp = Breakpoint.new('f1', 1, {enabled = true, dap_opts = {condition = '1', log_message = '2', hit_condition = '3'}})
+    local bp = Breakpoint.new(
+      "f1",
+      1,
+      { enabled = true, dap_opts = { condition = "1", log_message = "2", hit_condition = "3" } }
+    )
     assert.are.same(bp:get_persistent_data(), create_from_breakpoint(bp):get_persistent_data())
   end)
 
   it("checks lnum in loaded buffer", function()
-    local bp = Breakpoint.new('f1', 1, {})
+    local bp = Breakpoint.new("f1", 1, {})
     bp:load(buffer)
     vim.api.nvim_buf_set_lines(buffer, 0, 0, false, { "" })
     assert.equals(2, bp:get_lnum())
@@ -58,25 +62,25 @@ describe("test breakpoint classes", function()
   end)
 
   it("checks meta breakpoint", function()
-    local bp = MetaBreakpoint.new('f1', 1, {meta_opts = {hit_hook = 'a', remove_hook = 'b', trigger_hook = 'c'}})
+    local bp = MetaBreakpoint.new("f1", 1, { meta_opts = { hit_hook = "a", remove_hook = "b", trigger_hook = "c" } })
     assert.are.same(bp:get_persistent_data(), create_from_breakpoint(bp):get_persistent_data())
   end)
 
   it("checks internal hooks are not persistent", function()
-    local bp = MetaBreakpoint.new('f1', 1, {meta_opts = {hit_hook = '_a', remove_hook = '_b', trigger_hook = '_c'}})
+    local bp = MetaBreakpoint.new("f1", 1, { meta_opts = { hit_hook = "_a", remove_hook = "_b", trigger_hook = "_c" } })
     assert.are.same(nil, bp:get_persistent_data().meta_opts)
   end)
 
   it("checks starts_active", function()
-    local bp = MetaBreakpoint.new('f1', 1, {meta_opts = {starts_active = false}})
+    local bp = MetaBreakpoint.new("f1", 1, { meta_opts = { starts_active = false } })
     assert.falsy(bp:is_active())
     bp:remove()
   end)
 
   it("checks lnum in deleted buffer", function()
     local buf = vim.api.nvim_create_buf(true, false)
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {"", "", "", "", ""})
-    local bp = Breakpoint.new('f1', 1, {})
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "", "", "", "", "" })
+    local bp = Breakpoint.new("f1", 1, {})
     bp:load(buf)
     vim.api.nvim_buf_set_lines(buf, 0, 0, false, { "" })
     bp:update_lnum()
@@ -85,7 +89,7 @@ describe("test breakpoint classes", function()
   end)
 
   it("checks activate deactivate", function()
-    local bp = MetaBreakpoint.new('f1', 1, {})
+    local bp = MetaBreakpoint.new("f1", 1, {})
     bp:deactivate()
     assert.falsy(bp:is_active())
     bp:load(buffer)
@@ -103,12 +107,12 @@ describe("test breakpoint classes", function()
   it("checks creation of hook breakpoint", function()
     assert.has_error(function()
       -- missing trigger_hook
-      HookBreakpoint.new('f1', 1, {})
+      HookBreakpoint.new("f1", 1, {})
     end)
     assert.has_error(function()
-      HookBreakpoint.new('f1', 1, {meta_opts = {trigger_hook = 'a', starts_active = true}})
+      HookBreakpoint.new("f1", 1, { meta_opts = { trigger_hook = "a", starts_active = true } })
     end)
-    local bp = HookBreakpoint.new('f1', 1, {meta_opts = {trigger_hook = 'a'}})
+    local bp = HookBreakpoint.new("f1", 1, { meta_opts = { trigger_hook = "a" } })
     assert.is_false(bp:is_active())
     bp:load(buffer)
     assert.equals(0, #get_dap_breakpoints())
@@ -119,15 +123,15 @@ describe("test breakpoint classes", function()
   end)
 
   it("checks triggering hook activates breakpoint", function()
-    local bp =  HookBreakpoint.new('f1', 1, {meta_opts = {trigger_hook = 'a', hit_hook = 'b'}})
+    local bp = HookBreakpoint.new("f1", 1, { meta_opts = { trigger_hook = "a", hit_hook = "b" } })
     bp:disable()
-    trigger_hook('a')
+    trigger_hook("a")
     assert.is_false(bp:is_active())
     bp:enable()
     assert.is_false(bp:is_active())
-    trigger_hook('a')
+    trigger_hook("a")
     assert.is_true(bp:is_active())
-    trigger_hook('b')
+    trigger_hook("b")
     assert.is_false(bp:is_active())
     bp:remove()
   end)

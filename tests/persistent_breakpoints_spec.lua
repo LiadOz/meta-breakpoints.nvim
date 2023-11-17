@@ -1,10 +1,9 @@
 local uv = vim.loop
 local clear_persistent_breakpoints = require("tests.utils").clear_persistent_breakpoints
-local persistance = require('meta-breakpoints.persistence')
+local persistance = require("meta-breakpoints.persistence")
 local bps = require("meta-breakpoints.breakpoints.collection")
 local signs = require("meta-breakpoints.signs")
 local log = require("meta-breakpoints.log")
-vim.o.swapfile = false
 
 describe("test breakpoints persistence", function()
   local directory = "/tmp/meta_breakpoints"
@@ -158,7 +157,7 @@ describe("test breakpoints persistence", function()
   it("checks dap_opts and meta_opts are saved", function()
     local dap_opts = { condition = "a", hit_condition = "b", log_message = "c" }
     local meta_opts = { hit_hook = "d", trigger_hook = "e", remove_hook = "f", starts_active = false }
-    bps.toggle_meta_breakpoint({ bufnr = buffer, lnum = 1 }, {dap_opts = dap_opts, meta_opts = meta_opts})
+    bps.toggle_meta_breakpoint({ bufnr = buffer, lnum = 1 }, { dap_opts = dap_opts, meta_opts = meta_opts })
     buffer = assert_saved_breakpoints(buffer)
     local breakpoint = bps.get_breakpoints(buffer)[1]
     for key, value in pairs(dap_opts) do
@@ -181,7 +180,6 @@ describe("test breakpoints persistence", function()
     bps.ensure_persistent_breakpoints(buffer)
     assert.are.same(placed_bps[1].meta_opts, bps.get_breakpoints(buffer)[1].meta_opts)
   end)
-
 
   it("checks set_persistent_breakpoints", function()
     local second_buffer = vim.uri_to_bufnr("file://" .. file .. "2")
@@ -226,7 +224,7 @@ describe("test breakpoints persistence", function()
   end)
 
   it("checks persistent breakpoints with starts_active=false", function()
-    bps.toggle_meta_breakpoint({ bufnr = buffer, lnum = 1 }, {meta_opts = { starts_active = false }})
+    bps.toggle_meta_breakpoint({ bufnr = buffer, lnum = 1 }, { meta_opts = { starts_active = false } })
     save_breakpoints()
 
     vim.api.nvim_buf_delete(buffer, { force = true })
