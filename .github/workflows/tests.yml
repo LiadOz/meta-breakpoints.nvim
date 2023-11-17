@@ -30,4 +30,4 @@ jobs:
 
       - name: Run tests
         run: |
-          nvim --headless -c "PlenaryBustedDirectory tests {sequential = true}"
+          nvim --headless -c "PlenaryBustedDirectory tests {sequential = true, minimal_init = 'minimal.lua'}"

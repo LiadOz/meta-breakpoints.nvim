@@ -2,6 +2,7 @@ local M = {}
 
 local log = require("meta-breakpoints.log")
 
+---@type table<string, table<number, function>>
 local hooks_mapping = {}
 local next_hook_id = 0
 
@@ -23,16 +24,20 @@ end
 function M.remove_hook(hook_name, hook_id)
   if hook_id then
     hooks_mapping[hook_name][hook_id] = nil
-    local item_count = 0
-    for _, _ in ipairs(hooks_mapping[hook_name]) do
-      item_count = item_count + 1
-    end
-    if item_count == 0 then
+    if M.get_hooks_mapping(hook_name) == 0 then
       hooks_mapping[hook_name] = nil
     end
   else
     hooks_mapping[hook_name] = nil
   end
+end
+
+function M.get_hooks_mapping_count(hook_name)
+  local item_count = 0
+  for _, _ in pairs(hooks_mapping[hook_name]) do
+    item_count = item_count + 1
+  end
+  return item_count
 end
 
 function M.get_hooks_mapping(hook_name)
