@@ -27,7 +27,7 @@ function M.breakpoint_creator(breakpoint_type, class_signs)
 end
 
 ---@class HookBreakpoint : MetaBreakpoint
-local HookBreakpoint = M.breakpoint_creator("hook_breakpoint", config.signs.hook_breakpoint)
+local HookBreakpoint = M.breakpoint_creator("hook_breakpoint", config.signs.HookBreakpoint)
 M.HookBreakpoint = HookBreakpoint
 
 function HookBreakpoint.new(file_name, lnum, opts)
@@ -67,7 +67,7 @@ end
 
 M.continue_breakpoint_activated = false
 ---@class ContinueBreakpoint : MetaBreakpoint
-local ContinueBreakpoint = M.breakpoint_creator("continue_breakpoint", config.signs.continue_breakpoint)
+local ContinueBreakpoint = M.breakpoint_creator("continue_breakpoint", config.signs.ContinueBreakpoint)
 M.ContinueBreakpoint = ContinueBreakpoint
 
 function ContinueBreakpoint.new(file_name, lnum, opts)
