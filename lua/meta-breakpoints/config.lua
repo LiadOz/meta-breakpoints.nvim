@@ -29,7 +29,7 @@ local M = {
     },
   },
   log = {
-    level = 'info',
+    level = "info",
   },
 }
 
