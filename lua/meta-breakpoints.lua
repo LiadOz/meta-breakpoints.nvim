@@ -4,6 +4,7 @@ local breakpoints = require("meta-breakpoints.breakpoints.collection")
 local config = require("meta-breakpoints.config")
 local hooks = require("meta-breakpoints.hooks")
 local ui = require("meta-breakpoints.ui")
+local log = require("meta-breakpoints.log")
 M.toggle_breakpoint = ui.toggle_breakpoint
 M.put_conditional_breakpoint = ui.put_conditional_breakpoint
 M.get_all_breakpoints = breakpoints.get_breakpoints
@@ -35,6 +36,12 @@ function M.setup(opts)
         end,
       })
     end
+    for breakpoint_type, breakpoint_signs in pairs(config.signs) do
+      vim.fn.sign_undefine({ breakpoint_type, breakpoint_type .. "Disabled" })
+      vim.fn.sign_define(breakpoint_type, breakpoint_signs.enabled)
+      vim.fn.sign_define(breakpoint_type .. "Disabled", breakpoint_signs.disabled or breakpoint_signs.enabled)
+    end
+    log:set_level(config.log.level)
   end
 end
 

@@ -1,14 +1,14 @@
 local M = {
   signs = {
-    meta_breakpoint = {
+    MetaBreakpoint = {
       enabled = { text = "M" },
       disabled = { text = "M", texthl = "Comment" },
     },
-    hook_breakpoint = {
+    HookBreakpoint = {
       enabled = { text = "H" },
       disabled = { text = "H", texthl = "Comment" },
     },
-    continue_breakpoint = {
+    ContinueBreakpoint = {
       enabled = { text = "c" },
       disabled = { text = "c", texthl = "Comment" },
     },
@@ -27,6 +27,9 @@ local M = {
       continue_breakpoint = "hit_hook",
       hook_breakpoint = "trigger_hook",
     },
+  },
+  log = {
+    level = "info",
   },
 }
 

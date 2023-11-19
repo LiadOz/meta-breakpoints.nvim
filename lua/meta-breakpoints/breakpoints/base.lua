@@ -130,7 +130,6 @@ end
 
 function Breakpoint:update_sign(sign_type)
   assert(self.sign_id, "Can't update a breakpoint sign when sign doesn't exist")
-  print("updating breakpoint sign to", sign_type)
   signs.place_sign(self.bufnr, self.lnum, sign_type, nil, self.sign_id)
 end
 
@@ -255,6 +254,6 @@ function MetaBreakpoint:get_persistent_data()
 end
 
 M.MetaBreakpoint = MetaBreakpoint
-M.register_breakpoint_type(MetaBreakpoint, config.signs.meta_breakpoint)
+M.register_breakpoint_type(MetaBreakpoint, config.signs.MetaBreakpoint)
 
 return M
