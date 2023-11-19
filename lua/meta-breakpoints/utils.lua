@@ -105,4 +105,16 @@ function M.read_breakpoints(callback)
   end)
 end
 
+---@param str string camel case string
+---@return string pascal_string
+function M.snake_to_pascal(str)
+  local words = {}
+  for word in str:gmatch("[^_]+") do
+    table.insert(words, word)
+  end
+  return table.concat(vim.tbl_map(function(word)
+    return word:sub(1, 1):upper() .. word:sub(2)
+  end, words))
+end
+
 return M

@@ -4,11 +4,11 @@ local breakpoints = require("meta-breakpoints.breakpoints.collection")
 local config = require("meta-breakpoints.config")
 local hooks = require("meta-breakpoints.hooks")
 local ui = require("meta-breakpoints.ui")
-M.toggle_meta_breakpoint = ui.toggle_meta_breakpoint
-M.toggle_hook_breakpoint = ui.toggle_hook_breakpoint
+M.toggle_breakpoint = ui.toggle_breakpoint
 M.put_conditional_breakpoint = ui.put_conditional_breakpoint
-M.get_all_breakpoints = breakpoints.get_all_breakpoints
+M.get_all_breakpoints = breakpoints.get_breakpoints
 M.get_all_hooks = hooks.get_all_hooks
+M.toggle_breakpoint_state = ui.toggle_breakpoint_state
 
 function M.setup(opts)
   config.setup_opts(opts)
@@ -36,14 +36,6 @@ function M.setup(opts)
       })
     end
   end
-  vim.fn.sign_define(
-    "MetaBreakpoint",
-    { text = config.signs.meta_breakpoint_sign, texthl = "", linehl = "", numhl = "" }
-  )
-  vim.fn.sign_define(
-    "HookBreakpoint",
-    { text = config.signs.hook_breakpoint_sign, texthl = "", linehl = "", numhl = "" }
-  )
 end
 
 return M

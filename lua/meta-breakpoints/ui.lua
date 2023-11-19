@@ -1,8 +1,10 @@
 local M = {}
 local NEW_HOOK_PROMPT = "Create new hook: "
+local base = require("meta-breakpoints.breakpoints.base")
 local breakpoints = require("meta-breakpoints.breakpoints.collection")
 local persistence = require("meta-breakpoints.persistence")
 local hooks = require("meta-breakpoints.hooks")
+local config = require("meta-breakpoints.config")
 
 local function get_breakpoint_hooks()
   local curr_hooks = {}
@@ -32,7 +34,7 @@ local function get_breakpoint_hooks()
   return result
 end
 
-local function prompt_hit_hook_selection(on_selection)
+local function prompt_hook_selection(on_selection)
   local hook_names = get_breakpoint_hooks()
   table.insert(hook_names, 1, NEW_HOOK_PROMPT)
   vim.ui.select(hook_names, {
@@ -56,48 +58,56 @@ local function should_remove(replace_old)
   return false
 end
 
-function M.toggle_meta_breakpoint(persistent, replace_old, breakpoint_opts, prompt_hook)
-  breakpoint_opts = breakpoint_opts or {}
+---@param breakpoint_type string
+---@param placement_opts PlacementOpts
+---@param breakpoint_opts {dap_opts: DapOpts, meta_opts: MetaOpts}
+local function toggle_breakpoint(breakpoint_type, placement_opts, breakpoint_opts)
   breakpoint_opts.meta_opts = breakpoint_opts.meta_opts or {}
   local meta_opts = breakpoint_opts.meta_opts
-  if prompt_hook == nil then
-    prompt_hook = false
+  local prompt_field = config.ui.prompt_if_missing[breakpoint_type] or nil
+  if prompt_field and breakpoint_opts[prompt_field] == nil then
+    prompt_hook_selection(function(selection)
+      if selection then
+        meta_opts[prompt_field] = selection
+        breakpoints.toggle_breakpoint(breakpoint_type, placement_opts, breakpoint_opts)
+      end
+    end)
+  else
+    breakpoints.toggle_breakpoint(breakpoint_type, placement_opts, breakpoint_opts)
   end
-  -- check if breakpoints exist here if it does you want to only remove it unless replace_old is used
-  if should_remove() or (meta_opts and meta_opts.hit_hook) or prompt_hook == false then
-    breakpoints.toggle_meta_breakpoint({ replace = replace_old, persistent = persistent }, breakpoint_opts)
-    return
-  end
-  prompt_hit_hook_selection(function(selection)
-    if not selection then
-      return
-    end
-    if not meta_opts then
-      meta_opts = { hit_hook = selection }
-    else
-      meta_opts.hit_hook = selection
-    end
-    breakpoints.toggle_meta_breakpoint({ replace = replace_old, persistent = persistent }, breakpoint_opts)
-  end)
 end
 
-function M.toggle_hook_breakpoint(persistent, replace_old, breakpoint_opts)
+---@param breakpoint_type string | nil
+---@param placement_opts PlacementOpts | nil
+---@param breakpoint_opts {dap_opts: DapOpts, meta_opts: MetaOpts}|nil
+function M.toggle_breakpoint(breakpoint_type, placement_opts, breakpoint_opts)
+  placement_opts = placement_opts or {}
   breakpoint_opts = breakpoint_opts or {}
-  breakpoint_opts.meta_opts = breakpoint_opts.meta_opts or {}
-  local meta_opts = breakpoint_opts.meta_opts
-  if should_remove(replace_old) or meta_opts.trigger_hook then
-    if meta_opts.trigger_hook == nil then
-      meta_opts.trigger_hook = ""
-    end
-    breakpoints.toggle_hook_breakpoint({ replace = replace_old, persistent = persistent }, breakpoint_opts)
+  if should_remove(placement_opts.replace or false) then
+    breakpoints.remove_breakpoint(placement_opts)
     return
   end
-  prompt_hit_hook_selection(function(selection)
-    if selection then
-      meta_opts.trigger_hook = selection
-      breakpoints.toggle_hook_breakpoint({ replace = replace_old, persistent = persistent }, breakpoint_opts)
-    end
-  end)
+  if not breakpoint_type then
+    vim.ui.select(
+      vim.tbl_filter(
+        function(bp_type)
+          return bp_type ~= "breakpoint"
+        end,
+        vim.tbl_map(function(bp)
+          return bp:get_type()
+        end, base.get_registered_breakpoints())
+      ),
+      {},
+      function(selection)
+        if not selection then
+          return
+        end
+        toggle_breakpoint(selection, placement_opts, breakpoint_opts)
+      end
+    )
+  else
+    toggle_breakpoint(breakpoint_type, placement_opts, breakpoint_opts)
+  end
 end
 
 local function treesitter_highlight(lang, input)
@@ -133,6 +143,19 @@ function M.put_conditional_breakpoint(bp_opts, replace_old)
     bp_opts.condition = result
     M.toggle_meta_breakpoint(bp_opts, replace_old)
   end)
+end
+
+function M.toggle_breakpoint_state()
+  local bp = breakpoints.get_breakpoint_at_cursor()
+  if not bp then
+    return
+  end
+  if bp.enabled then
+    bp:disable()
+  else
+    bp:enable()
+  end
+  breakpoints.update_buf_breakpoints(0, true)
 end
 
 return M

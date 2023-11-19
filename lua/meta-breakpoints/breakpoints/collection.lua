@@ -1,7 +1,6 @@
 local M = {}
 
 ---@alias PlacementOpts {bufnr: number, lnum: number, replace: boolean, persistent: boolean}
----@alias BreakpointData {bufnr: number, sign_id: number, dap_opts: DapOpts, meta: MetaOpts}
 
 ---@type table<number, MetaBreakpoint>
 local bp_by_sign_id = {}
@@ -16,6 +15,7 @@ local persistence = require("meta-breakpoints.persistence")
 local config = require("meta-breakpoints.config")
 local log = require("meta-breakpoints.log")
 local dap_utils = require("meta-breakpoints.nvim_dap_utils")
+local breakpoint_builtin = require("meta-breakpoints.breakpoints.builtin")
 local breakpoint_factory = require("meta-breakpoints.breakpoints").breakpoint_factory
 
 ---@return MetaBreakpoint[]
@@ -112,7 +112,7 @@ end
 
 ---@param breakpoint_type string
 ---@param placement_opts PlacementOpts|nil
----@param opts {dap_opts: DapOpts, meta_opts: MetaOpts}|nil
+---@param opts {dap_opts: DapOpts, meta_opts: table}|nil
 ---@return MetaBreakpoint|nil breakpoint_data
 function M.toggle_breakpoint(breakpoint_type, placement_opts, opts)
   breakpoint_type = breakpoint_type or "meta_breakpoint"
@@ -137,14 +137,23 @@ function M.toggle_breakpoint(breakpoint_type, placement_opts, opts)
 end
 
 ---@param placement_opts PlacementOpts|nil
----@param opts {dap_opts: DapOpts, meta_opts: MetaOpts}|nil
+---@return boolean removed
+function M.remove_breakpoint(placement_opts)
+  placement_opts = setup_placement_opts(placement_opts)
+  local bufnr = placement_opts.bufnr
+  local lnum = placement_opts.lnum
+  return remove_meta_breakpoint(bufnr, lnum)
+end
+
+---@param placement_opts PlacementOpts|nil
+---@param opts {dap_opts: DapOpts, meta_opts: table}|nil
 ---@return MetaBreakpoint|nil breakpoint_data
 function M.toggle_meta_breakpoint(placement_opts, opts)
   M.toggle_breakpoint("meta_breakpoint", placement_opts, opts)
 end
 
 ---@param placement_opts PlacementOpts|nil
----@param opts {dap_opts: DapOpts, meta_opts: MetaOpts}|nil
+---@param opts {dap_opts: DapOpts, meta_opts: table}|nil
 ---@return MetaBreakpoint|nil breakpoint_data
 function M.toggle_hook_breakpoint(placement_opts, opts)
   M.toggle_breakpoint("hook_breakpoint", placement_opts, opts)
@@ -302,6 +311,10 @@ dap.listeners.after.stackTrace["meta-breakpoints.trigger_hooks"] = function(sess
   set_persistent_breakpoints_sync(dap.session())
   dap_utils.update_dap_breakpoints()
   dap_utils.raise_dap_stopped_priority(stop_sign)
+  if breakpoint_builtin.continue_breakpoint_activated then
+    dap.continue()
+    breakpoint_builtin.continue_breakpoint_activated = false
+  end
 end
 
 return M

@@ -1,4 +1,5 @@
 local M = {}
+local config = require("meta-breakpoints.config")
 local signs = require("meta-breakpoints.signs")
 local dap_utils = require("meta-breakpoints.nvim_dap_utils")
 local hooks = require("meta-breakpoints.hooks")
@@ -15,15 +16,23 @@ function M.breakpoint_factory(breakpoint_type, breakpoint_opts)
   return breakpoint_class.new(breakpoint_opts.file_name, breakpoint_opts.lnum, breakpoint_opts.opts)
 end
 
+---@alias SignOpts {text: string, texthl: string, linehl: string, numhl: string}
+
 ---@param breakpoint_class Breakpoint
----@param default_sign_opts {text: string, texthl: string, linehl: string, numhl: string}
+---@param default_sign_opts {enabled: SignOpts, disabled: SignOpts|nil}
 function M.register_breakpoint_type(breakpoint_class, default_sign_opts)
+  default_sign_opts.disabled = default_sign_opts.disabled or default_sign_opts.enabled
   registered_breakpoints[breakpoint_class.get_type()] = breakpoint_class
-  vim.fn.sign_define(breakpoint_class.get_default_sign(), default_sign_opts)
+  vim.fn.sign_define(breakpoint_class.get_default_sign(), default_sign_opts.enabled)
+  vim.fn.sign_define(breakpoint_class.get_default_sign() .. "Disabled", default_sign_opts.disabled)
+end
+
+function M.get_registered_breakpoints()
+  return vim.tbl_values(registered_breakpoints)
 end
 
 ---@alias DapOpts {condition: string, log_message: string, hit_condition: string}
----@alias MetaOpts {hit_hook: string, trigger_hook: string, remove_hook: string, persistent: boolean, starts_active: boolean}
+---@alias MetaOpts {hit_hook: string, trigger_hook: string, remove_hook: string, starts_active: boolean}
 
 ---@class Breakpoint
 ---@field file_name string
@@ -121,6 +130,7 @@ end
 
 function Breakpoint:update_sign(sign_type)
   assert(self.sign_id, "Can't update a breakpoint sign when sign doesn't exist")
+  print("updating breakpoint sign to", sign_type)
   signs.place_sign(self.bufnr, self.lnum, sign_type, nil, self.sign_id)
 end
 
@@ -144,7 +154,7 @@ function Breakpoint:get_persistent_data()
 end
 
 M.Breakpoint = Breakpoint
-M.register_breakpoint_type(Breakpoint, { text = "B" })
+M.register_breakpoint_type(Breakpoint, { enabled = { text = "B" } })
 
 ---@class MetaBreakpoint : Breakpoint
 ---@field meta_opts MetaOpts
@@ -174,7 +184,11 @@ end
 ---@param bufnr number
 function MetaBreakpoint:load(bufnr)
   self.bufnr = bufnr
-  self.sign_id = signs.place_sign(bufnr, self.lnum, self.get_default_sign())
+  local current_sign = self.get_default_sign()
+  if not self.enabled then
+    current_sign = current_sign .. "Disabled"
+  end
+  self.sign_id = signs.place_sign(bufnr, self.lnum, current_sign)
   if self.enabled and self.active then
     self:place_dap_breakpoint(bufnr)
   end
@@ -198,12 +212,22 @@ function MetaBreakpoint:deactivate()
 end
 
 function MetaBreakpoint:enable()
+  if self.sign_id then
+    self:update_sign(self.get_default_sign())
+  end
   local toggle = self.meta_opts.starts_active
   if toggle then
     return Breakpoint.enable(self)
   end
   self.enabled = true
   self.active = toggle
+end
+
+function MetaBreakpoint:disable()
+  Breakpoint.disable(self)
+  if self.sign_id then
+    self:update_sign(self.get_default_sign() .. "Disabled")
+  end
 end
 
 function MetaBreakpoint:remove()
@@ -231,6 +255,6 @@ function MetaBreakpoint:get_persistent_data()
 end
 
 M.MetaBreakpoint = MetaBreakpoint
-M.register_breakpoint_type(MetaBreakpoint, { text = "M" })
+M.register_breakpoint_type(MetaBreakpoint, config.signs.meta_breakpoint)
 
 return M

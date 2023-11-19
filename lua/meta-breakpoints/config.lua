@@ -1,7 +1,17 @@
 local M = {
   signs = {
-    meta_breakpoint_sign = "M",
-    hook_breakpoint_sign = "H",
+    meta_breakpoint = {
+      enabled = { text = "M" },
+      disabled = { text = "M", texthl = "Comment" },
+    },
+    hook_breakpoint = {
+      enabled = { text = "H" },
+      disabled = { text = "H", texthl = "Comment" },
+    },
+    continue_breakpoint = {
+      enabled = { text = "c" },
+      disabled = { text = "c", texthl = "Comment" },
+    },
   },
   persistent_breakpoints = {
     enabled = true,
@@ -12,6 +22,12 @@ local M = {
     persist_on_placement = true, -- useful in tests
   },
   plugin_directory = vim.fn.stdpath("data") .. "/meta_breakpoints",
+  ui = {
+    prompt_if_missing = {
+      continue_breakpoint = "hit_hook",
+      hook_breakpoint = "trigger_hook",
+    },
+  },
 }
 
 local function update_config(config, opts)

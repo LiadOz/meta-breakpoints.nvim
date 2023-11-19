@@ -1,13 +1,35 @@
 local M = {}
 
+local config = require("meta-breakpoints.config")
 local base = require("meta-breakpoints.breakpoints.base")
 local MetaBreakpoint = base.MetaBreakpoint
 local hooks = require("meta-breakpoints.hooks")
+local utils = require("meta-breakpoints.utils")
+
+local builtin_breakpoint_count = 0
+
+---@param breakpoint_type string
+function M.breakpoint_creator(breakpoint_type, class_signs)
+  local classname = utils.snake_to_pascal(breakpoint_type)
+  local class = setmetatable({}, { __index = MetaBreakpoint })
+
+  class.get_default_sign = function()
+    return classname
+  end
+
+  class.get_type = function()
+    return breakpoint_type
+  end
+
+  base.register_breakpoint_type(class, class_signs)
+
+  return class
+end
 
 ---@class HookBreakpoint : MetaBreakpoint
-local HookBreakpoint = setmetatable({}, { __index = MetaBreakpoint })
+local HookBreakpoint = M.breakpoint_creator("hook_breakpoint", config.signs.hook_breakpoint)
+M.HookBreakpoint = HookBreakpoint
 
-local hook_breakpoint_count = 0
 function HookBreakpoint.new(file_name, lnum, opts)
   opts = opts or {}
   local meta_opts = opts.meta_opts or {}
@@ -18,12 +40,12 @@ function HookBreakpoint.new(file_name, lnum, opts)
   local instance = MetaBreakpoint.new(file_name, lnum, opts)
   local self = setmetatable(instance, { __index = HookBreakpoint })
 
-  self.meta_opts.hit_hook = self.meta_opts.hit_hook or string.format("_hit-%s", hook_breakpoint_count)
-  self.meta_opts.remove_hook = self.meta_opts.remove_hook or string.format("_remove-%s", hook_breakpoint_count)
-  hook_breakpoint_count = hook_breakpoint_count + 1
+  self.meta_opts.hit_hook = self.meta_opts.hit_hook or string.format("_hit-%s", builtin_breakpoint_count)
+  self.meta_opts.remove_hook = self.meta_opts.remove_hook or string.format("_remove-%s", builtin_breakpoint_count)
+  builtin_breakpoint_count = builtin_breakpoint_count + 1
 
   local trigger_id = hooks.register_to_hook(self.meta_opts.trigger_hook, function()
-    if self.enabled then
+    if self.enabled and not self.active then
       self:activate()
     end
   end)
@@ -33,23 +55,42 @@ function HookBreakpoint.new(file_name, lnum, opts)
     end
   end)
 
-  hooks.register_to_hook(meta_opts.remove_hook, function()
+  local remove_id
+  remove_id = hooks.register_to_hook(meta_opts.remove_hook, function()
     hooks.remove_hook(meta_opts.hit_hook, hit_id)
     hooks.remove_hook(meta_opts.trigger_hook, trigger_id)
-    hooks.remove_hook(meta_opts.remove_hook)
+    hooks.remove_hook(meta_opts.remove_hook, remove_id)
   end)
 
   return self
 end
 
-function HookBreakpoint.get_default_sign()
-  return "HookBreakpoint"
-end
+M.continue_breakpoint_activated = false
+---@class ContinueBreakpoint : MetaBreakpoint
+local ContinueBreakpoint = M.breakpoint_creator("continue_breakpoint", config.signs.continue_breakpoint)
+M.ContinueBreakpoint = ContinueBreakpoint
 
-function HookBreakpoint.get_type()
-  return "hook_breakpoint"
+function ContinueBreakpoint.new(file_name, lnum, opts)
+  opts = opts or {}
+  local meta_opts = opts.meta_opts or {}
+  assert(meta_opts.hit_hook, "Must have hit hook for continue breakpoint")
+  local instance = MetaBreakpoint.new(file_name, lnum, opts)
+  local self = setmetatable(instance, { __index = ContinueBreakpoint })
+
+  self.meta_opts.remove_hook = self.meta_opts.remove_hook or string.format("_remove-%s", builtin_breakpoint_count)
+  builtin_breakpoint_count = builtin_breakpoint_count + 1
+
+  local hit_id = hooks.register_to_hook(self.meta_opts.hit_hook, function()
+    M.continue_breakpoint_activated = true
+  end, 1)
+
+  local remove_id
+  remove_id = hooks.register_to_hook(meta_opts.remove_hook, function()
+    hooks.remove_hook(meta_opts.hit_hook, hit_id)
+    hooks.remove_hook(meta_opts.remove_hook, remove_id)
+  end)
+
+  return self
 end
-M.HookBreakpoint = HookBreakpoint
-base.register_breakpoint_type(HookBreakpoint, { text = "H" })
 
 return M

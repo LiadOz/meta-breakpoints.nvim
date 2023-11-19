@@ -6,12 +6,15 @@ local M = {}
 ---@type table<string, MetaBreakpoint[]>
 local persistent_breakpoints = {}
 
+---@type table<string, table>
+local saved_breakpoints_data = {}
+
 local utils = require("meta-breakpoints.utils")
 local breakpoint_factory = require("meta-breakpoints.breakpoints").breakpoint_factory
 
----@param file_name string
----@param breakpoints Breakpoint[]|nil
-local function save_file_breakpoints(file_name, breakpoints, callback)
+---@param breakpoints MetaBreakpoint[]|nil
+---@return table|nil
+local function get_breakpoints_save_data(breakpoints)
   local data = {}
   if breakpoints == nil then
     data = nil
@@ -23,8 +26,15 @@ local function save_file_breakpoints(file_name, breakpoints, callback)
       table.insert(data, bp_data)
     end
   end
+  return data
+end
+
+---@param file_name string
+---@param breakpoints_data table[]|nil
+local function save_file_breakpoints(file_name, breakpoints_data, callback)
+  saved_breakpoints_data[file_name] = breakpoints_data
   utils.read_breakpoints(function(files_data)
-    files_data[file_name] = data
+    files_data[file_name] = breakpoints_data
     utils.save_breakpoints(files_data, callback)
   end)
 end
@@ -53,15 +63,16 @@ end
 ---@param file_name string
 ---@param breakpoints Breakpoint[]|nil
 ---@param update_file boolean
----@param override_changed boolean still update file if the breakpoints have been already updated
+---@param override_changed boolean still update file if detected no change
 ---@param callback fun()|nil
 function M.update_file_breakpoints(file_name, breakpoints, update_file, override_changed, callback)
   override_changed = override_changed or false
-  local changed = not vim.deep_equal(breakpoints, persistent_breakpoints[file_name])
+  local breakpoints_data = get_breakpoints_save_data(breakpoints)
+  local changed = not vim.deep_equal(breakpoints_data, saved_breakpoints_data[file_name])
 
   persistent_breakpoints[file_name] = breakpoints
   if update_file and (changed or override_changed) then
-    save_file_breakpoints(file_name, breakpoints, callback)
+    save_file_breakpoints(file_name, breakpoints_data, callback)
   else
     if callback then
       vim.schedule(callback)
