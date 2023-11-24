@@ -58,13 +58,29 @@ local function should_remove(replace_old)
   return false
 end
 
+---@alias UiSelectionOpts {prompt_field: string, prompt_if_missing: table<string, string>}
+
+---@param breakpoint_type string
+---@param selection_opts UiSelectionOpts
+---@return string|nil prompt_field
+local function determine_prompt_field(breakpoint_type, selection_opts)
+  if selection_opts.prompt_field then
+    return selection_opts.prompt_field
+  elseif selection_opts.prompt_if_missing and selection_opts.prompt_if_missing[breakpoint_type] then
+    return selection_opts.prompt_if_missing[breakpoint_type]
+  end
+  return config.ui.prompt_if_missing[breakpoint_type] or nil
+end
+
 ---@param breakpoint_type string
 ---@param placement_opts PlacementOpts
 ---@param breakpoint_opts {dap_opts: DapOpts, meta_opts: MetaOpts}
-local function toggle_breakpoint(breakpoint_type, placement_opts, breakpoint_opts)
+---@param selection_opts UiSelectionOpts|nil
+local function toggle_breakpoint(breakpoint_type, placement_opts, breakpoint_opts, selection_opts)
   breakpoint_opts.meta_opts = breakpoint_opts.meta_opts or {}
+  selection_opts = selection_opts or {}
   local meta_opts = breakpoint_opts.meta_opts
-  local prompt_field = config.ui.prompt_if_missing[breakpoint_type] or nil
+  local prompt_field = determine_prompt_field(breakpoint_type, selection_opts)
   if prompt_field and breakpoint_opts[prompt_field] == nil then
     prompt_hook_selection(function(selection)
       if selection then
@@ -80,7 +96,8 @@ end
 ---@param breakpoint_type string | nil
 ---@param placement_opts PlacementOpts | nil
 ---@param breakpoint_opts {dap_opts: DapOpts, meta_opts: MetaOpts}|nil
-function M.toggle_breakpoint(breakpoint_type, placement_opts, breakpoint_opts)
+---@param selection_opts UiSelectionOpts|nil
+function M.toggle_breakpoint(breakpoint_type, placement_opts, breakpoint_opts, selection_opts)
   placement_opts = placement_opts or {}
   breakpoint_opts = breakpoint_opts or {}
   if should_remove(placement_opts.replace or false) then
@@ -102,11 +119,11 @@ function M.toggle_breakpoint(breakpoint_type, placement_opts, breakpoint_opts)
         if not selection then
           return
         end
-        toggle_breakpoint(selection, placement_opts, breakpoint_opts)
+        toggle_breakpoint(selection, placement_opts, breakpoint_opts, selection_opts)
       end
     )
   else
-    toggle_breakpoint(breakpoint_type, placement_opts, breakpoint_opts)
+    toggle_breakpoint(breakpoint_type, placement_opts, breakpoint_opts, selection_opts)
   end
 end
 
