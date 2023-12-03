@@ -1,7 +1,7 @@
 local M = {}
 
 local log = require("meta-breakpoints.log")
-local last_sign_id = 0
+local last_sign_id = 100000 -- use a high sign id to take priority over nvim-dap breakpoint signs but not the DapStopped sign
 local sign_group = "meta-breakpoints"
 
 ---@param sign_id number
@@ -57,7 +57,7 @@ end
 ---@return number sign_id
 function M.place_sign(bufnr, lnum, sign_type, priority, sign_id)
   sign_id = sign_id or get_new_sign_id()
-  priority = priority or 22
+  priority = priority or 21
   sign_id = vim.fn.sign_place(sign_id, sign_group, sign_type, bufnr, { lnum = lnum, priority = priority })
   log.fmt_trace("sign placed bufnr:%s lnum:%s sign_id:%s", bufnr, lnum, sign_id)
   return sign_id

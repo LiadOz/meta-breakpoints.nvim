@@ -310,7 +310,6 @@ dap.listeners.after.stackTrace["meta-breakpoints.trigger_hooks"] = function(sess
   M.trigger_hooks(bufnr, stop_sign.lnum)
   set_persistent_breakpoints_sync(dap.session())
   dap_utils.update_dap_breakpoints()
-  dap_utils.raise_dap_stopped_priority(stop_sign)
   if breakpoint_builtin.continue_breakpoint_activated then
     dap.continue()
     breakpoint_builtin.continue_breakpoint_activated = false
