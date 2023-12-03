@@ -41,8 +41,4 @@ function M.get_dap_stopped_sign(session)
   return nil
 end
 
-function M.raise_dap_stopped_priority(sign)
-  vim.fn.sign_place(sign.id, sign.group, "DapStopped", sign.bufnr, { lnum = sign.lnum, priority = 22 })
-end
-
 return M
