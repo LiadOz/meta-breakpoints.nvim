@@ -1,7 +1,7 @@
 local M = {}
 
 local log = require("meta-breakpoints.log")
-local last_sign_id = 0
+local last_sign_id = 100000 -- use a high sign id to take priority over nvim-dap breakpoint signs but not the DapStopped sign
 local ns = vim.api.nvim_create_namespace("meta-breakpoints")
 
 ---@param sign_id number
