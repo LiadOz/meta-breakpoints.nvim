@@ -36,11 +36,6 @@ function M.setup(opts)
         end,
       })
     end
-    for breakpoint_type, breakpoint_signs in pairs(config.signs) do
-      vim.fn.sign_undefine({ breakpoint_type, breakpoint_type .. "Disabled" })
-      vim.fn.sign_define(breakpoint_type, breakpoint_signs.enabled)
-      vim.fn.sign_define(breakpoint_type .. "Disabled", breakpoint_signs.disabled or breakpoint_signs.enabled)
-    end
     log:set_level(config.log.level)
   end
 end

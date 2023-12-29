@@ -131,6 +131,8 @@ function M.toggle_breakpoint(breakpoint_type, placement_opts, opts)
   bp:load(bufnr)
   add_breakpoint_to_collections(bp, placement_opts.persistent)
   if placement_opts.persistent then
+    bp.injected_sign_data.persistent = true
+    bp:update_sign()
     M.update_buf_breakpoints(bufnr, config.persistent_breakpoints.persist_on_placement)
   end
   return bp
@@ -180,6 +182,7 @@ function M.ensure_persistent_breakpoints(bufnr)
       return
     end
     for _, persistent_breakpoint in pairs(persistent_breakpoints) do
+      persistent_breakpoint.injected_sign_data.persistent = true
       persistent_breakpoint:load(bufnr)
       add_breakpoint_to_collections(persistent_breakpoint, true)
     end

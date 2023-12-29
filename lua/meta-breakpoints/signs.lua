@@ -1,45 +1,46 @@
 local M = {}
 
 local log = require("meta-breakpoints.log")
-local last_sign_id = 100000 -- use a high sign id to take priority over nvim-dap breakpoint signs but not the DapStopped sign
-local sign_group = "meta-breakpoints"
+local last_sign_id = 0
+local ns = vim.api.nvim_create_namespace("meta-breakpoints")
 
 ---@param sign_id number
 ---@param bufnr number
 ---@return {lnum: number}
 function M.get_sign_id_data(sign_id, bufnr)
-  local placements = vim.fn.sign_getplaced(bufnr, { group = sign_group, id = sign_id })
-  local lnum = placements[1].signs[1].lnum
-  return { lnum = lnum }
+  log.fmt_trace("looking for sign_id %s in bufnr %s", sign_id, bufnr)
+  return { lnum = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns, sign_id, {})[1] + 1 }
 end
 
----@param bufnr number|nil
+---@param bufnr number
+---@return {sign_id: number, lnum: number}[]
+local function get_buffer_signs(bufnr)
+  return vim.tbl_map(function(extmark_data)
+    return { sign_id = extmark_data[1], lnum = extmark_data[2] + 1 }
+  end, vim.api.nvim_buf_get_extmarks(bufnr, ns, 0, -1, {}))
+end
+
+---@param bufnr number|nil if nil is passed return signs in all of the buffers
 ---@return {sign_id: number, lnum: number}[]
 function M.get_buf_signs(bufnr)
-  local buffers = {}
   if bufnr then
-    table.insert(buffers, bufnr)
-  else
-    for _, placement in ipairs(vim.fn.sign_getplaced()) do
-      local ff = placement.bufnr
-      table.insert(buffers, ff)
-    end
+    return get_buffer_signs(bufnr)
   end
-
   local result = {}
-  for _, buffer in ipairs(buffers) do
-    local placement = vim.fn.sign_getplaced(buffer, { group = sign_group })[1]
-    for _, sign_data in ipairs(placement.signs) do
-      table.insert(result, { sign_id = sign_data.id, lnum = sign_data.lnum })
+  for _, buffer in ipairs(vim.api.nvim_list_bufs()) do
+    for _, buf_sign in ipairs(get_buffer_signs(buffer)) do
+      table.insert(result, buf_sign)
     end
   end
   return result
 end
 
 function M.get_sign_at_location(bufnr, lnum)
-  local signs = vim.fn.sign_getplaced(bufnr, { group = sign_group, lnum = lnum })[1].signs
-  if #signs > 0 then
-    return signs[1].id
+  local buf_signs = M.get_buf_signs(bufnr)
+  for _, buf_sign in ipairs(buf_signs) do
+    if buf_sign.lnum == lnum then
+      return buf_sign.sign_id
+    end
   end
   return nil
 end
@@ -49,28 +50,40 @@ local function get_new_sign_id()
   return last_sign_id
 end
 
+local priority = 21
+if vim.fn.has("nvim-0.10.0") == 0 then
+  priority = 22
+end
+
 ---@param bufnr number
 ---@param lnum number
----@param sign_type string
----@param priority number|nil
+---@param sign_text string
+---@param sign_hl_group string
 ---@param sign_id number|nil
 ---@return number sign_id
-function M.place_sign(bufnr, lnum, sign_type, priority, sign_id)
+function M.place_sign(bufnr, lnum, sign_text, sign_hl_group, sign_id)
   sign_id = sign_id or get_new_sign_id()
-  priority = priority or 21
-  sign_id = vim.fn.sign_place(sign_id, sign_group, sign_type, bufnr, { lnum = lnum, priority = priority })
+  vim.api.nvim_buf_set_extmark(
+    bufnr,
+    ns,
+    lnum - 1,
+    0,
+    { priority = priority, id = sign_id, sign_text = sign_text, sign_hl_group = sign_hl_group }
+  )
   log.fmt_trace("sign placed bufnr:%s lnum:%s sign_id:%s", bufnr, lnum, sign_id)
   return sign_id
 end
 
 function M.remove_sign(bufnr, sign_id)
   log.fmt_trace("removing sign_id:%s from bufnr:%s", sign_id, bufnr)
-  vim.fn.sign_unplace(sign_group, { buffer = bufnr, id = sign_id })
+  vim.api.nvim_buf_del_extmark(bufnr, ns, sign_id)
 end
 
 function M.clear_signs()
   log.trace("clearing all signs")
-  vim.fn.sign_unplace(sign_group)
+  for _, buffer in ipairs(vim.api.nvim_list_bufs()) do
+    vim.api.nvim_buf_clear_namespace(buffer, ns, 0, -1)
+  end
 end
 
 return M

@@ -65,9 +65,9 @@ describe("test breakpoints persistence", function()
     for _, breakpoint_data in pairs(bps.get_breakpoints()) do
       if breakpoint_data.bufnr == bufnr then
         local breakpoint = vim.deepcopy(breakpoint_data)
+        breakpoint.lnum = signs.get_sign_id_data(breakpoint.sign_id, bufnr).lnum
         breakpoint.bufnr = nil
         breakpoint.sign_id = nil
-        breakpoint.lnum = signs.get_sign_id_data(breakpoint.sign_id, bufnr).lnum
         table.insert(result, breakpoint)
       end
     end

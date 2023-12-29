@@ -1,17 +1,19 @@
 local M = {
   signs = {
-    MetaBreakpoint = {
-      enabled = { text = "M" },
-      disabled = { text = "M", texthl = "Comment" },
+    defaults = {
+      enabled = {
+        persistent = { texthl = "Constant" },
+      },
+      disabled = {
+        texthl = "Comment",
+        persistent = {
+          texthl = "Comment",
+        },
+      },
     },
-    HookBreakpoint = {
-      enabled = { text = "H" },
-      disabled = { text = "H", texthl = "Comment" },
-    },
-    ContinueBreakpoint = {
-      enabled = { text = "c" },
-      disabled = { text = "c", texthl = "Comment" },
-    },
+    meta_breakpoint = { text = "M" },
+    hook_breakpoint = { text = "H" },
+    continue_breakpoint = { text = "c" },
   },
   persistent_breakpoints = {
     enabled = true,
