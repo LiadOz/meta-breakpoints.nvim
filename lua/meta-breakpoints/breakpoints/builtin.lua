@@ -1,33 +1,26 @@
 local M = {}
 
-local config = require("meta-breakpoints.config")
 local base = require("meta-breakpoints.breakpoints.base")
 local MetaBreakpoint = base.MetaBreakpoint
 local hooks = require("meta-breakpoints.hooks")
-local utils = require("meta-breakpoints.utils")
 
 local builtin_breakpoint_count = 0
 
 ---@param breakpoint_type string
-function M.breakpoint_creator(breakpoint_type, class_signs)
-  local classname = utils.snake_to_pascal(breakpoint_type)
+function M.breakpoint_creator(breakpoint_type)
   local class = setmetatable({}, { __index = MetaBreakpoint })
-
-  class.get_default_sign = function()
-    return classname
-  end
 
   class.get_type = function()
     return breakpoint_type
   end
 
-  base.register_breakpoint_type(class, class_signs)
+  base.register_breakpoint_type(class)
 
   return class
 end
 
 ---@class HookBreakpoint : MetaBreakpoint
-local HookBreakpoint = M.breakpoint_creator("hook_breakpoint", config.signs.HookBreakpoint)
+local HookBreakpoint = M.breakpoint_creator("hook_breakpoint")
 M.HookBreakpoint = HookBreakpoint
 
 function HookBreakpoint.new(file_name, lnum, opts)
@@ -67,7 +60,7 @@ end
 
 M.continue_breakpoint_activated = false
 ---@class ContinueBreakpoint : MetaBreakpoint
-local ContinueBreakpoint = M.breakpoint_creator("continue_breakpoint", config.signs.ContinueBreakpoint)
+local ContinueBreakpoint = M.breakpoint_creator("continue_breakpoint")
 M.ContinueBreakpoint = ContinueBreakpoint
 
 function ContinueBreakpoint.new(file_name, lnum, opts)
